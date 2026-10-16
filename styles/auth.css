@@ -1,0 +1,6 @@
+.auth-page { display: grid; place-items: center; padding-block: clamp(2rem, 6vw, 4rem); }
+.auth-panel { display: grid; gap: 1.5rem; width: min(100%, 30rem); background: var(--surface); padding: clamp(1.25rem, 4vw, 2.5rem); border: 1px solid var(--surface-border); border-radius: var(--radius-lg); }
+.auth-panel h1 { font-size: clamp(2rem, 5vw, 3rem); }
+.auth-panel a { font-weight: 600; color: var(--ink); }
+.auth-panel .section-stack { gap: 1rem; }
+.auth-panel .ui-button--ghost { justify-self: start; }

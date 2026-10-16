@@ -32,13 +32,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <a href="#main-content" className="skip-link">Skip to content</a>
-        <SiteHeader />
-        <main id="main-content" className="flex-1">
-          {/* Redux creates random internal IDs; defer it beyond the static shell. */}
-          <Suspense fallback={<div className="container page-stack" role="status">Loading…</div>}>
-            <StoreProvider>{children}</StoreProvider>
-          </Suspense>
-        </main>
+        {/* Redux creates random internal IDs; defer it beyond the static shell. */}
+        <Suspense fallback={<main id="main-content" className="container page-stack flex-1" role="status">Loading…</main>}>
+          <StoreProvider>
+            <SiteHeader />
+            <main id="main-content" className="flex-1">{children}</main>
+          </StoreProvider>
+        </Suspense>
         <footer className="site-footer"><div className="container">{APP.name} · {APP.description}</div></footer>
       </body>
     </html>
