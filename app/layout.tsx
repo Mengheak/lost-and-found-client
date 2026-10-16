@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Barlow, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { APP } from "@/lib/constants";
@@ -30,12 +31,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${barlow.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <StoreProvider>
-          <a href="#main-content" className="skip-link">Skip to content</a>
-          <SiteHeader />
-          <main id="main-content" className="flex-1">{children}</main>
-          <footer className="site-footer"><div className="container">{APP.name} · {APP.description}</div></footer>
-        </StoreProvider>
+        <a href="#main-content" className="skip-link">Skip to content</a>
+        <SiteHeader />
+        <main id="main-content" className="flex-1">
+          {/* Redux creates random internal IDs; defer it beyond the static shell. */}
+          <Suspense fallback={<div className="container page-stack" role="status">Loading…</div>}>
+            <StoreProvider>{children}</StoreProvider>
+          </Suspense>
+        </main>
+        <footer className="site-footer"><div className="container">{APP.name} · {APP.description}</div></footer>
       </body>
     </html>
   );
