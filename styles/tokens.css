@@ -1,5 +1,4 @@
-/* Brand colors from the Angular app's public/logo.svg.
-   Supporting tokens are defaults; its original global theme was unavailable. */
+/* Brand colors from the Angular app's public/logo.svg. Supporting tokens are defaults; its original global theme was unavailable. */
 :root {
   --primary: #ffd100;
   --primary-dark: #e6bc00;
