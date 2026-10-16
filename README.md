@@ -11,7 +11,7 @@ npm run lint
 npm run build
 ```
 
-Open `/` for the starter page and `/design-system` for the component gallery and interactive Redux filter example. These are UI foundations; reporting, authentication, and API integration are not implemented yet.
+Open `/` or `/items` to browse live reports, `/items/[id]` for details, and `/design-system` for the component gallery. Reporting and authentication are not implemented yet.
 
 ## Structure
 
@@ -35,7 +35,7 @@ Layouts start with one column, switch to two at 40rem (640px), and three at 64re
 
 ## State and icons
 
-Use `useAppDispatch` and `useAppSelector` from `store/hooks.ts` in client components. Add reducers under `store/slices/` and register them in `store/index.ts`. The provider creates one store per mounted application; there is no server-wide singleton. Filters survive client navigation but reset on a full reload. Keep transient component state local and avoid reading Redux from Server Components. No persistence or backend is configured.
+Use `useAppDispatch` and `useAppSelector` from `store/hooks.ts` in client components. Add reducers under `store/slices/` and register them in `store/index.ts`. The provider creates one store per mounted application; there is no server-wide singleton. Filters survive client navigation but reset on a full reload. Keep transient component state local and avoid reading Redux from Server Components. RTK Query handles the item and category API cache. No persistent storage is configured.
 
 Import individual icons from `lucide-react`. Decorative icons use `aria-hidden`; icon-only controls must have an accessible label.
 
@@ -43,5 +43,14 @@ References: [Redux with Next.js](https://redux.js.org/usage/nextjs), [Lucide Rea
 
 ## Validation in this workspace
 
-Lint, route type generation, TypeScript checking, and Redux filter update/reset/store-isolation checks passed. The production build hit a Turbopack CSS-worker process startup error on this Windows environment. The development server started, but the browser could not connect to localhost, so visual and browser interaction checks remain unverified.
+Lint, route type generation, TypeScript checking, and Redux filter update/reset/store-isolation checks passed. The production build hit a Turbopack CSS-worker process startup error on this Windows environment. Live HTTP integration checks passed for listing, keyword/type/category/status filters, pagination, item details, empty results, and missing-item responses. Browser verification confirmed that the Redux prerender error is resolved and the Lost items filter returns matching results. Full visual and responsive checks remain incomplete.
+
+
+## Browse & Search Items
+
+The Next.js read-only catalog proxy forwards requests to `API_BASE_URL` (default `http://localhost:8080`). Copy `.env.example` to `.env.local` to change it, then restart the frontend. Browser requests stay on the frontend origin; no CORS changes or credentials are needed for these public endpoints.
+
+Search submits keywords against item names/descriptions. Type, category, and status changes reset pagination. Filters survive client navigation to details and back, but reset on full reload. Results use 12 items per page, newest first. The backend has no location-search parameter; locations are displayed when provided, with a map link for coordinates. Photos use the backend's signed URLs with missing/broken-image fallbacks. Active item queries refresh every five minutes to renew signed URLs.
+
+The detail page shows descriptions, photo selection, category, status, date, brand, color, location, and reporter. Contact, claim, authentication, and reporting flows are intentionally deferred.
 
