@@ -11,7 +11,7 @@ npm run lint
 npm run build
 ```
 
-Open `/` or `/items` to browse live reports, `/items/[id]` for details, and `/design-system` for the component gallery. Reporting and authentication are not implemented yet.
+Open `/` or `/items` to browse live reports, `/items/[id]` for details, and `/design-system` for the component gallery. Sign-in, registration, and the account page are available at `/login`, `/register`, and `/account`. Reporting is not implemented yet.
 
 ## Structure
 
@@ -52,5 +52,15 @@ The Next.js read-only catalog proxy forwards requests to `API_BASE_URL` (default
 
 Search submits keywords against item names/descriptions. Type, category, and status changes reset pagination. Filters survive client navigation to details and back, but reset on full reload. Results use 12 items per page, newest first. The backend has no location-search parameter; locations are displayed when provided, with a map link for coordinates. Photos use the backend's signed URLs with missing/broken-image fallbacks. Active item queries refresh every five minutes to renew signed URLs.
 
-The detail page shows descriptions, photo selection, category, status, date, brand, color, location, and reporter. Contact, claim, authentication, and reporting flows are intentionally deferred.
+The detail page shows descriptions, photo selection, category, status, date, brand, color, location, and reporter. Contact, claim, and reporting flows are intentionally deferred.
 
+
+## Authentication
+
+Email/password authentication uses RTK Query with a same-origin server endpoint at `/api/auth/[action]`. The server calls the existing backend login, register, refresh, logout, and current-user endpoints. Access and refresh tokens are never returned to browser JavaScript or stored in localStorage; they live in HttpOnly, SameSite=Lax cookies scoped to `/api/auth`. Production cookies require HTTPS. Authentication POSTs require an exact matching Origin and JSON content type. Reverse proxies must preserve the public request origin.
+
+The account route renders only a public loading shell until the server validates the session. Anonymous visitors are redirected to sign-in; no private account data is embedded in public HTML. Session validation runs when mounted and every minute while subscribed. Expired access tokens are refreshed server-side. The refresh cookie lasts at most seven days, matching the backend default; the backend remains authoritative about token validity. Web Locks serialize authentication requests across tabs in supported browsers; browsers without Web Locks may require signing in again if two tabs race a single-use refresh token.
+
+Registration follows backend password rules: at least eight Unicode characters and at most 72 UTF-8 bytes. The UI also checks password confirmation. Logout revokes all sessions on the backend, then clears cookies and cached frontend data. A transient logout failure retains the session for retry. Redux DevTools recording is disabled to avoid recording password-bearing mutation arguments. Password reset and Google sign-in are not included in this feature.
+
+Run `npm test` for the authentication contract and security regression suite. It compiles the actual route in memory and simulates backend responses; no accounts are created. Login, registration, refresh, outage, logout, cookie, CSRF, and password-boundary cases are covered. Successful sign-in against a real user account still requires user acceptance testing; no personal credentials were used during development.
