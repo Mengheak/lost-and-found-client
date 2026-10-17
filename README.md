@@ -92,3 +92,9 @@ Signed-in users can open `/my-reports` from the header to page through their own
 The editor keeps current photos by default. Users can replace the entire photo set or remove all photos. Temporary signed image URLs are never sent back as permanent photo references. The backend treats null values as unchanged, so blank date, coordinates, and reward fields retain existing values; a reward of zero removes the reward amount. Text fields can be cleared. Item type cannot be changed.
 
 Contract tests cover authenticated pagination, ownership rejection, photo preservation/replacement, and refresh-cookie retention when an update fails. These tests mock the backend; authenticated editing against live accounts still needs acceptance testing.
+
+## Editing your profile
+
+Open `/account` and choose **Edit profile** to update your name, phone number, or profile photo. Email is read-only. Blank phone numbers clear the saved phone. Photo uploads accept one JPG, PNG, or WebP up to 5 MB; the form previews the selection and supports undo before saving. Removing a photo only takes effect when saving. Leaving the photo unchanged omits it from the update, so signed URLs are never saved as permanent references.
+
+The same-origin `update-profile` action forwards only name, phone, and an optional photo upload/removal to `PUT /api/users/me`. Tokens remain in HttpOnly cookies. Successful updates refresh the session and report caches, including the header avatar. Contract tests mock backend responses; live authenticated profile updates require acceptance testing.

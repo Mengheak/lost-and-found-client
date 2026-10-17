@@ -411,3 +411,109 @@ test("management requires a session and retains refreshed cookies after upstream
   assert.equal(result.status, 403);
   assert.equal(result.cookies.get("lf_refresh").value, tokens.refreshToken);
 });
+
+function profileRequest(
+  profile,
+  avatars = [],
+  cookie = "lf_access=valid",
+  origin = "http://localhost:3000",
+) {
+  const body = new FormData();
+  body.set("profile", new Blob([JSON.stringify(profile)], { type: "application/json" }));
+  avatars.forEach((file) => body.append("avatar", file));
+  return POST(
+    new NextRequest("http://localhost:3000/api/auth/update-profile", {
+      method: "POST",
+      headers: { origin, cookie },
+      body,
+    }),
+    { params: Promise.resolve({ action: "update-profile" }) },
+  );
+}
+
+test("profile updates require authentication and same origin", async (t) => {
+  const calls = backend(t, []);
+  assert.equal((await profileRequest({ name: "Test", phone: "" }, [], "")).status, 401);
+  assert.equal(
+    (await profileRequest({ name: "Test", phone: "" }, [], "", "https://other.invalid")).status,
+    403,
+  );
+  assert.equal(calls.length, 0);
+});
+
+test("profile updates only forward editable fields and keep the current photo by default", async (t) => {
+  const calls = backend(t, [
+    { body: { data: user } },
+    { body: { data: { ...user, name: "Updated" } } },
+  ]);
+  const result = await profileRequest({
+    name: " Updated ",
+    phone: "",
+    email: "other@example.invalid",
+    role: "ADMIN",
+    id: "other-user",
+    profilePhotoUrl: "https://other.invalid/photo",
+  });
+  assert.equal(result.status, 200);
+  assert.equal((await result.json()).user.name, "Updated");
+  assert.equal(calls[1].path, "/api/users/me");
+  assert.equal(calls[1].options.method, "PUT");
+  assert.equal(calls[1].options.headers.Authorization, "Bearer valid");
+  assert.deepEqual(JSON.parse(await calls[1].options.body.get("profile").text()), {
+    name: "Updated",
+    phone: "",
+  });
+  assert.equal(calls[1].options.body.get("avatar"), null);
+});
+
+test("profile supports avatar upload and explicit removal without persisting signed URLs", async (t) => {
+  const calls = backend(t, [
+    { body: { data: user } },
+    { body: { data: user } },
+    { body: { data: user } },
+    { body: { data: { ...user, profilePhotoUrl: null } } },
+  ]);
+  const avatar = new File(["image"], "avatar.png", { type: "image/png" });
+  assert.equal((await profileRequest({ name: "Test", phone: "" }, [avatar])).status, 200);
+  assert.equal(calls[1].options.body.get("avatar").name, "avatar.png");
+  assert.equal(
+    JSON.parse(await calls[1].options.body.get("profile").text()).profilePhotoUrl,
+    undefined,
+  );
+  const result = await profileRequest({ name: "Test", phone: "", removePhoto: true });
+  assert.equal(result.status, 200);
+  assert.equal((await result.json()).user.profilePhotoUrl, null);
+  assert.equal(JSON.parse(await calls[3].options.body.get("profile").text()).profilePhotoUrl, "");
+});
+
+test("invalid profile and conflicting or unsupported photos are rejected before saving", async (t) => {
+  const calls = backend(
+    t,
+    Array.from({ length: 5 }, () => ({ body: { data: user } })),
+  );
+  const avatar = new File(["image"], "avatar.png", { type: "image/png" });
+  assert.equal((await profileRequest({ name: " ", phone: "" })).status, 400);
+  assert.equal((await profileRequest({ name: "Test", phone: "1".repeat(51) })).status, 400);
+  assert.equal((await profileRequest({ name: "Test", phone: "" }, [avatar, avatar])).status, 400);
+  assert.equal(
+    (await profileRequest({ name: "Test", phone: "", removePhoto: true }, [avatar])).status,
+    400,
+  );
+  assert.equal(
+    (
+      await profileRequest({ name: "Test", phone: "" }, [
+        new File(["x"], "x.svg", { type: "image/svg+xml" }),
+      ])
+    ).status,
+    400,
+  );
+  assert.equal(calls.length, 5);
+});
+
+test("profile failures retain rotated cookies and never retry a save automatically", async (t) => {
+  const calls = backend(t, [{}, new Error("timeout")]);
+  const result = await profileRequest({ name: "Test", phone: "" }, [], "lf_refresh=old");
+  assert.equal(result.status, 503);
+  assert.equal(result.cookies.get("lf_refresh").value, tokens.refreshToken);
+  assert.equal(calls.length, 2);
+});
