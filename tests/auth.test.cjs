@@ -37,7 +37,7 @@ function backend(t, responses) {
     const next = responses.shift();
     assert.ok(next, 'Unexpected backend request');
     if (next instanceof Error) throw next;
-    return Response.json(next.body ?? { data: tokens }, { status: next.status ?? 200 });
+    return Response.json(next.body ?? { data: tokens }, { status: next.status ?? 200, headers: next.headers });
   });
   return calls;
 }
@@ -121,4 +121,59 @@ test('logout network failure preserves rotated tokens so the user can retry', as
   const result = await request('logout', {}, 'lf_refresh=valid');
   assert.equal(result.status, 503);
   assert.equal(result.cookies.get('lf_refresh').value, tokens.refreshToken);
+});
+test('Google start forwards the browser session and relays only the handshake cookie', async t => {
+  const calls = backend(t, [{ body: { data: { authorizationUrl: '/oauth2/authorization/google' } }, headers: { 'Set-Cookie': 'JSESSIONID=new-handshake; Path=/; HttpOnly; SameSite=Lax' } }]);
+  const result = await request('google-start', {}, 'JSESSIONID=old-handshake; lf_access=private-app-token');
+  assert.equal(result.status, 200);
+  assert.deepEqual(await result.json(), { authorizationUrl: 'http://localhost:8080/oauth2/authorization/google' });
+  assert.equal(calls[0].path, '/api/auth/google/start');
+  assert.equal(calls[0].options.headers.Origin, 'http://localhost:3000');
+  assert.equal(calls[0].options.headers.Cookie, 'JSESSIONID=old-handshake');
+  assert.equal(result.cookies.get('JSESSIONID').httpOnly, true);
+  assert.equal(result.cookies.get('JSESSIONID').path, '/');
+  assert.equal(result.cookies.get('lf_google_pending').value, '1');
+});
+test('Google start rejects arbitrary upstream redirects and missing session cookies', async t => {
+  backend(t, [{ body: { data: { authorizationUrl: 'https://untrusted.invalid' } } }, { body: { data: { authorizationUrl: '/oauth2/authorization/google' } } }]);
+  assert.equal((await request('google-start')).status, 502);
+  assert.equal((await request('google-start')).status, 502);
+});
+test('Google disabled and origin rejection return actionable configuration codes', async t => {
+  backend(t, [{ status: 404 }, { status: 403 }]);
+  assert.equal((await (await request('google-start')).json()).code, 'GOOGLE_DISABLED');
+  assert.equal((await (await request('google-start')).json()).code, 'GOOGLE_CONFIGURATION');
+});
+test('Google completion requires a flow started in this browser', async t => {
+  const calls = backend(t, []);
+  assert.equal((await request('google-complete')).status, 401);
+  assert.equal((await request('google-complete', {}, 'JSESSIONID=unsolicited')).status, 401);
+  assert.equal(calls.length, 0);
+});
+test('Google completion stores app tokens privately and clears the consumed handshake', async t => {
+  const calls = backend(t, [{}]);
+  const result = await request('google-complete', {}, 'JSESSIONID=completed; lf_google_pending=1');
+  assert.equal(result.status, 200);
+  assert.deepEqual(await result.json(), { user });
+  assert.equal(result.cookies.get('lf_access').value, tokens.accessToken);
+  assert.equal(result.cookies.get('lf_access').httpOnly, true);
+  assert.equal(result.cookies.get('JSESSIONID').maxAge, 0);
+  assert.equal(result.cookies.get('lf_google_pending').maxAge, 0);
+  assert.equal(calls[0].path, '/api/auth/google/complete');
+  assert.equal(calls[0].options.headers.Cookie, 'JSESSIONID=completed');
+});
+test('Google conflict and expired completion clear handshake without clearing an existing app session', async t => {
+  backend(t, [{ status: 409 }, { status: 401 }]);
+  for (const status of [409, 401]) {
+    const result = await request('google-complete', {}, 'JSESSIONID=completed; lf_google_pending=1; lf_access=existing');
+    assert.equal(result.status, status);
+    assert.equal(result.cookies.get('JSESSIONID').maxAge, 0);
+    assert.equal(result.cookies.get('lf_access'), undefined);
+  }
+});
+test('Google linking response is not treated as a successful sign-in', async t => {
+  backend(t, [{ body: { data: null } }]);
+  const result = await request('google-complete', {}, 'JSESSIONID=completed; lf_google_pending=1');
+  assert.equal(result.status, 401);
+  assert.equal(result.cookies.get('lf_access'), undefined);
 });
