@@ -11,7 +11,7 @@ npm run lint
 npm run build
 ```
 
-Open `/` or `/items` to browse live reports, `/items/[id]` for details, and `/design-system` for the component gallery. Sign-in, registration, and the account page are available at `/login`, `/register`, and `/account`. Reporting is not implemented yet.
+Open `/` or `/items` to browse live reports and `/items/[id]` for details. Sign-in, registration, and the account page are available at `/login`, `/register`, and `/account`. Reporting is not implemented yet.
 
 ## Structure
 
@@ -19,7 +19,6 @@ Open `/` or `/items` to browse live reports, `/items/[id]` for details, and `/de
 - `components/ui/`: shared Button, Input, Card, and Badge components.
 - `components/layout/`: shared application shell.
 - `components/providers/`: client providers mounted by the server root layout.
-- `components/design-system/`: interactive component examples.
 - `lib/`: application constants, route constants, types, and utilities.
 - `store/`: store factory, typed hooks, and Redux slices.
 - `styles/`: shared design tokens and component styles.
