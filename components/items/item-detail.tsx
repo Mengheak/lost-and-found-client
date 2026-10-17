@@ -8,23 +8,41 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatItemDate, itemLocation, STATUS_LABELS } from "@/lib/items";
 import { ItemPhoto } from "./item-photo";
+import { ImageModal } from "../ui/image-modal";
 
 export function ItemDetail({ id }: { id: string }) {
   const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
   const { data: item, isLoading, isError, error, refetch } = useGetItemQuery(id, { skip: !validId, pollingInterval: 300000 });
+
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [openImageModal, setOpenImageModal] = useState<boolean>(false)
   const notFound = !validId || (error && "status" in error && error.status === 404);
   return <div className="container page-stack">
-    <Link className="back-link" href="/items"><ArrowLeft size={18} aria-hidden="true" />Back to items</Link>
+    <Link className="back-link" href="/items">
+      <ArrowLeft size={18} aria-hidden="true" />
+      Back to items
+    </Link>
     {isLoading ? <div role="status" className="browse-message">Loading item details…</div>
       : notFound ? <div className="browse-message">
         <h1>Item not found</h1>
         <p className="muted">This report may have been removed or the link may be incorrect.</p>
-        </div>
+      </div>
         : isError ? <div className="browse-message" role="alert"><h1>Unable to load this item</h1><p className="muted">Please check your connection and try again.</p><Button onClick={() => refetch()}><RotateCcw size={18} aria-hidden="true" />Try again</Button></div>
           : item && <article className="detail-grid">
             <section className="section-stack" aria-label="Item photos">
-              <div className="detail-photo"><ItemPhoto key={item.id} src={item.photoUrls?.[photoIndex] || item.photoUrls?.[0]} alt={item.name} /></div>
+              {
+                openImageModal &&
+                <ImageModal
+                  key={openImageModal ? `open-${photoIndex}` : "closed"}
+                  images={item.photoUrls}
+                  onClose={() => setOpenImageModal(false)}
+                  open={openImageModal}
+                />}
+              <div className="detail-photo"
+                onClick={() => setOpenImageModal(true)}
+              >
+                <ItemPhoto key={item.id} src={item.photoUrls?.[photoIndex] || item.photoUrls?.[0]} alt={item.name} />
+              </div>
               {item.photoUrls?.length > 1 && <div className="photo-picker" role="group" aria-label="Choose a photo">
                 {item.photoUrls.map((src, index) =>
                   <button
