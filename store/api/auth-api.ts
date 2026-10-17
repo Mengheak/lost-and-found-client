@@ -13,6 +13,12 @@ const lockedQuery: typeof baseQuery = async (args, api, options) => {
 export const authApi = createApi({
   reducerPath: "authApi", baseQuery: lockedQuery, tagTypes: ["Session"],
   endpoints: (builder) => ({
+    startGoogle: builder.mutation<{ authorizationUrl: string }, void>({
+      query: () => ({ url: "google-start", method: "POST", body: {} }),
+    }),
+    completeGoogle: builder.mutation<{ user: AuthUser }, void>({
+      query: () => ({ url: "google-complete", method: "POST", body: {} }), invalidatesTags: ["Session"],
+    }),
     session: builder.query<{ user: AuthUser | null }, void>({
       query: () => ({ url: "session", method: "POST", body: {} }),
       providesTags: ["Session"], keepUnusedDataFor: 0,
@@ -28,4 +34,4 @@ export const authApi = createApi({
     }),
   }),
 });
-export const { useSessionQuery, useLoginMutation, useRegisterMutation, useLogoutMutation } = authApi;
+export const { useSessionQuery, useLoginMutation, useRegisterMutation, useLogoutMutation, useStartGoogleMutation, useCompleteGoogleMutation } = authApi;

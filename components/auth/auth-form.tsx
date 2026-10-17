@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLoginMutation, useRegisterMutation } from "@/store/api/auth-api";
 import { authError, PASSWORD_HINT, validPassword } from "@/lib/auth";
+import { GoogleSignIn } from "./google-sign-in";
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const register = mode === "register";
@@ -17,7 +18,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [visible, setVisible] = useState(false);
   const [message, setMessage] = useState("");
   const [passwordError, setPasswordError] = useState("");
-  const busy = loginState.isLoading || registerState.isLoading;
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const busy = loginState.isLoading || registerState.isLoading || googleBusy;
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
@@ -38,6 +40,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   return <div className="container auth-page"><section className="auth-panel">
     <p className="eyebrow">Lost & Found</p><h1>{register ? "Join the community." : "Welcome back."}</h1>
     <p className="muted">{register ? "A small act of kindness starts with you." : "Sign in to your Lost & Found account."}</p>
+    <GoogleSignIn disabled={loginState.isLoading || registerState.isLoading} onBusyChange={setGoogleBusy} />
+    <div className="auth-divider">or continue with email</div>
     <form className="section-stack" onSubmit={submit}>
       {register && <Input label="Full name" name="name" autoComplete="name" required maxLength={255} />}
       <Input label="Email address" name="email" type="email" autoComplete="email" required maxLength={255} />
@@ -46,7 +50,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         <Button variant="ghost" size="sm" onClick={() => setVisible(!visible)} aria-pressed={visible}>{visible ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}{visible ? "Hide password" : "Show password"}</Button></div>
       {register && <Input label="Confirm password" name="confirmPassword" type={visible ? "text" : "password"} autoComplete="new-password" required />}
       {message && <p role="alert" className="field-error">{message}</p>}
-      <Button type="submit" loading={busy}>{register ? <UserPlus size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}{register ? "Create account" : "Sign in"}</Button>
+      <Button type="submit" disabled={googleBusy} loading={loginState.isLoading || registerState.isLoading}>{register ? <UserPlus size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}{register ? "Create account" : "Sign in"}</Button>
     </form>
     <p className="muted">{register ? "Already have an account? " : "New here? "}<Link href={register ? "/login" : "/register"}>{register ? "Sign in" : "Create an account"}</Link></p>
   </section></div>;

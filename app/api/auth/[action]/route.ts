@@ -37,8 +37,48 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     return response({ message: "Request not permitted" }, 403);
   }
   const { action } = await context.params;
-  if (!["login", "register", "session", "logout"].includes(action)) return response({ message: "Not found" }, 404);
+  if (!["login", "register", "session", "logout", "google-start", "google-complete"].includes(action)) return response({ message: "Not found" }, 404);
   try {
+    if (action === "google-start" || action === "google-complete") {
+      // Spring's browser handshake cookie must reach both the backend callback
+      // and this BFF. Use the same public hostname (different localhost ports work).
+      const apiOrigin = new URL(process.env.GOOGLE_API_PUBLIC_URL || process.env.API_BASE_URL || "http://localhost:8080");
+      if (apiOrigin.hostname !== request.nextUrl.hostname || apiOrigin.protocol !== request.nextUrl.protocol) {
+        return response({ message: "Google sign-in requires a shared public hostname.", code: "GOOGLE_CONFIGURATION" }, 503);
+      }
+      const completing = action === "google-complete";
+      const sessionId = request.cookies.get("JSESSIONID")?.value;
+      if (completing && (!sessionId || !request.cookies.get("lf_google_pending"))) {
+        return response({ message: "Google sign-in has expired. Please start again." }, 401);
+      }
+      const upstream = await fetch(new URL(`/api/auth/google/${completing ? "complete" : "start"}`, process.env.API_BASE_URL || "http://localhost:8080"), {
+        method: "POST", headers: { Origin: request.nextUrl.origin, "Content-Type": "application/json", ...(sessionId ? { Cookie: `JSESSIONID=${encodeURIComponent(sessionId)}` } : {}) },
+        body: "{}", cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(10000),
+      });
+      const clearHandshake = (result: NextResponse) => {
+        result.cookies.set("lf_google_pending", "", { ...cookieOptions, maxAge: 0 });
+        result.cookies.set("JSESSIONID", "", { ...cookieOptions, path: "/", maxAge: 0 });
+        return result;
+      };
+      if (!upstream.ok) {
+        const result = response({ message: "Google sign-in could not be completed.", code: upstream.status === 404 ? "GOOGLE_DISABLED" : upstream.status === 403 && !completing ? "GOOGLE_CONFIGURATION" : "GOOGLE_FAILED" }, upstream.status);
+        return completing ? clearHandshake(result) : result;
+      }
+      const { data } = await upstream.json();
+      if (completing) {
+        if (!data?.accessToken || !data?.refreshToken || !data?.user) return clearHandshake(response({ message: "No sign-in result. Please start again." }, 401));
+        return clearHandshake(setSession(response({ user: publicUser(data.user) }), data));
+      }
+      // Never redirect to an arbitrary URL supplied by an upstream response.
+      if (data?.authorizationUrl !== "/oauth2/authorization/google") return response({ message: "Unexpected Google authorization route." }, 502);
+      const handshake = upstream.headers.getSetCookie().find((value) => value.startsWith("JSESSIONID="));
+      const id = handshake?.split(";")[0].slice("JSESSIONID=".length);
+      if (!id) return response({ message: "Google session could not be started." }, 502);
+      const result = response({ authorizationUrl: new URL(data.authorizationUrl, apiOrigin).toString() });
+      result.cookies.set("JSESSIONID", id, { ...cookieOptions, path: "/", maxAge: 300, secure: cookieOptions.secure || /;\s*secure(?:;|$)/i.test(handshake!) });
+      result.cookies.set("lf_google_pending", "1", { ...cookieOptions, maxAge: 300 });
+      return result;
+    }
     if (action === "login" || action === "register") {
       let body;
       try { body = await request.json(); } catch { return response({ message: "Invalid request" }, 400); }
