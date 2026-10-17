@@ -4,7 +4,7 @@ export const APP = {
   logo: "/logo.svg",
 } as const;
 
-export const ROUTES = { home: "/", items: "/items", designSystem: "/design-system" } as const;
+export const ROUTES = { home: "/", items: "/items" } as const;
 
 export const ITEM_TYPES = ["all", "lost", "found"] as const;
 export type ItemTypeFilter = (typeof ITEM_TYPES)[number];

@@ -11,7 +11,7 @@ npm run lint
 npm run build
 ```
 
-Open `/` or `/items` to browse live reports, `/items/[id]` for details, and `/design-system` for the component gallery. Reporting and authentication are not implemented yet.
+Open `/` or `/items` to browse live reports and `/items/[id]` for details. Sign-in, registration, and the account page are available at `/login`, `/register`, and `/account`. Reporting is not implemented yet.
 
 ## Structure
 
@@ -19,7 +19,6 @@ Open `/` or `/items` to browse live reports, `/items/[id]` for details, and `/de
 - `components/ui/`: shared Button, Input, Card, and Badge components.
 - `components/layout/`: shared application shell.
 - `components/providers/`: client providers mounted by the server root layout.
-- `components/design-system/`: interactive component examples.
 - `lib/`: application constants, route constants, types, and utilities.
 - `store/`: store factory, typed hooks, and Redux slices.
 - `styles/`: shared design tokens and component styles.
@@ -52,5 +51,35 @@ The Next.js read-only catalog proxy forwards requests to `API_BASE_URL` (default
 
 Search submits keywords against item names/descriptions. Type, category, and status changes reset pagination. Filters survive client navigation to details and back, but reset on full reload. Results use 12 items per page, newest first. The backend has no location-search parameter; locations are displayed when provided, with a map link for coordinates. Photos use the backend's signed URLs with missing/broken-image fallbacks. Active item queries refresh every five minutes to renew signed URLs.
 
-The detail page shows descriptions, photo selection, category, status, date, brand, color, location, and reporter. Contact, claim, authentication, and reporting flows are intentionally deferred.
+The detail page shows descriptions, photo selection, category, status, date, brand, color, location, and reporter. Contact, claim, and reporting flows are intentionally deferred.
 
+
+## Authentication
+
+Email/password authentication uses RTK Query with a same-origin server endpoint at `/api/auth/[action]`. The server calls the existing backend login, register, refresh, logout, and current-user endpoints. Access and refresh tokens are never returned to browser JavaScript or stored in localStorage; they live in HttpOnly, SameSite=Lax cookies scoped to `/api/auth`. Production cookies require HTTPS. Authentication POSTs require an exact matching Origin and JSON content type. Reverse proxies must preserve the public request origin.
+
+The account route renders only a public loading shell until the server validates the session. Anonymous visitors are redirected to sign-in; no private account data is embedded in public HTML. Session validation runs when mounted and every minute while subscribed. Expired access tokens are refreshed server-side. The refresh cookie lasts at most seven days, matching the backend default; the backend remains authoritative about token validity. Web Locks serialize authentication requests across tabs in supported browsers; browsers without Web Locks may require signing in again if two tabs race a single-use refresh token.
+
+Registration follows backend password rules: at least eight Unicode characters and at most 72 UTF-8 bytes. The UI also checks password confirmation. Logout revokes all sessions on the backend, then clears cookies and cached frontend data. A transient logout failure retains the session for retry. Redux DevTools recording is disabled to avoid recording password-bearing mutation arguments. Password reset and explicit Google account linking are not included.
+
+Run `npm test` for the authentication contract and security regression suite. It compiles the actual route in memory and simulates backend responses; no accounts are created. Login, registration, refresh, outage, logout, cookie, CSRF, and password-boundary cases are covered. Successful sign-in against a real user account still requires user acceptance testing; no personal credentials were used during development.
+
+## Google sign-in
+
+Both authentication pages offer Continue with Google. The frontend starts the backend-managed OAuth2/OIDC flow, navigates to its authorization URL, and completes once at `/auth/google/callback`. Spring owns state, nonce, Google token validation, and identity rules. The Next.js server exchanges the completed handshake for app tokens and sets the existing HttpOnly app cookies. The browser never receives app tokens in JavaScript or URLs. Cancellation, expired handshakes, conflicts, disabled configuration, and rate limiting show recoverable errors; a failed completion must start a new flow.
+
+Set these values in the **backend runtime**, then restart it (the backend does not automatically read its `.env` outside Docker):
+
+```dotenv
+GOOGLE_LOGIN_ENABLED=true
+GOOGLE_FRONTEND_URL=http://localhost:3000/auth/google/callback
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:4200
+GOOGLE_COOKIE_SECURE=false
+GOOGLE_COOKIE_SAME_SITE=lax
+```
+
+Keep the Google client ID and secret only on the backend. The Google OAuth client must allow `http://localhost:8080/login/oauth2/code/google` as its redirect URI. This is the backend callback, not the frontend callback.
+
+The handshake uses Spring's default `JSESSIONID` cookie. Frontend and browser-facing API must use the **same hostname and protocol** so Spring's rotated handshake cookie reaches Next.js completion. Different localhost ports work; do not mix `localhost` and `127.0.0.1`. For production, use HTTPS and a shared public hostname/reverse proxy, route `/oauth2/**` and `/login/oauth2/**` to Spring, configure trusted forwarded headers, and enable secure Google cookies. Set `GOOGLE_API_PUBLIC_URL` in Next.js when the browser-facing API origin differs from the internal `API_BASE_URL`. Separate frontend/API hostnames are intentionally rejected by this integration; shared-parent-domain cookies are not configured.
+
+At implementation time the running backend rejected port 3000 and returned 404 for Google start on its allowed legacy origin. A live Google account sign-in remains pending backend enablement and user consent. Tests cover the server cookie handoff, restricted redirects, disabled configuration, single-use completion prerequisites, conflicts, and private token storage without accessing a real Google account.

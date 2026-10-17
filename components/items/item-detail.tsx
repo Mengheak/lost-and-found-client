@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, MapPin, CalendarDays, UserRound } from "lucide-react";
+import { ArrowLeft, MapPin, CalendarDays, UserRound, RotateCcw } from "lucide-react";
 import { useGetItemQuery } from "@/store/api/items-api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ export function ItemDetail({ id }: { id: string }) {
     <Link className="back-link" href="/items"><ArrowLeft size={18} aria-hidden="true" />Back to items</Link>
     {isLoading ? <div role="status" className="browse-message">Loading item details…</div>
       : notFound ? <div className="browse-message"><h1>Item not found</h1><p className="muted">This report may have been removed or the link may be incorrect.</p></div>
-      : isError ? <div className="browse-message" role="alert"><h1>Unable to load this item</h1><p className="muted">Please check your connection and try again.</p><Button onClick={() => refetch()}>Try again</Button></div>
+      : isError ? <div className="browse-message" role="alert"><h1>Unable to load this item</h1><p className="muted">Please check your connection and try again.</p><Button onClick={() => refetch()}><RotateCcw size={18} aria-hidden="true" />Try again</Button></div>
       : item && <article className="detail-grid">
         <section className="section-stack" aria-label="Item photos">
           <div className="detail-photo"><ItemPhoto key={item.id} src={item.photoUrls?.[photoIndex] || item.photoUrls?.[0]} alt={item.name} /></div>
