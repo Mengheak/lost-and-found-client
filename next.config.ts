@@ -18,12 +18,18 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
+        protocol: "http",
+        hostname: "localhost",
+        port: "9000",
+        pathname: "/**",
+      },
+      {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
         pathname: "/**",
-      }
-    ]
-  }
+      },
+    ],
+  },
 };
 
 export default nextConfig;
