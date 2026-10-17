@@ -4,11 +4,12 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogIn, MapPin, Send, Upload, X } from "lucide-react";
-import { useSessionQuery, useReportItemMutation } from "@/store/api/auth-api";
+import { useSessionQuery, useReportItemMutation, useEditItemMutation } from "@/store/api/auth-api";
 import { itemsApi, useGetCategoriesQuery } from "@/store/api/items-api";
 import { useAppDispatch } from "@/store/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import type { Item } from "@/lib/items";
 import { validatePhotos, validateReport } from "@/lib/report-item";
 
 function PhotoPreview({ file, remove }: { file: File; remove: () => void }) {
@@ -30,14 +31,28 @@ function PhotoPreview({ file, remove }: { file: File; remove: () => void }) {
   );
 }
 
-export function ReportItemForm() {
+export function ReportItemForm({
+  initialItem,
+  onSaved,
+  onCancel,
+}: {
+  initialItem?: Item;
+  onSaved?: () => void;
+  onCancel?: () => void;
+}) {
   const session = useSessionQuery();
   const categories = useGetCategoriesQuery(undefined, { skip: !session.data?.user });
-  const [publish, { isLoading }] = useReportItemMutation();
-  const [type, setType] = useState<"LOST" | "FOUND">("LOST");
+  const [publish, creation] = useReportItemMutation();
+  const [update, editing] = useEditItemMutation();
+  const isLoading = creation.isLoading || editing.isLoading;
+  const [photoMode, setPhotoMode] = useState("keep");
+  const [type, setType] = useState<"LOST" | "FOUND">(initialItem?.type ?? "LOST");
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState("");
-  const [coordinates, setCoordinates] = useState({ lat: "", lng: "" });
+  const [coordinates, setCoordinates] = useState({
+    lat: String(initialItem?.locationLat ?? ""),
+    lng: String(initialItem?.locationLng ?? ""),
+  });
   const [locating, setLocating] = useState(false);
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -52,27 +67,48 @@ export function ReportItemForm() {
       type,
       name: text("name"),
       categoryId: text("categoryId"),
-      description: text("description") || null,
-      brand: text("brand") || null,
-      color: text("color") || null,
+      description: text("description") || (initialItem ? "" : null),
+      brand: text("brand") || (initialItem ? "" : null),
+      color: text("color") || (initialItem ? "" : null),
       locationLat: coordinates.lat === "" ? null : Number(coordinates.lat),
       locationLng: coordinates.lng === "" ? null : Number(coordinates.lng),
       dateTime: text("dateTime") ? new Date(text("dateTime")).toISOString() : null,
       ...(type === "LOST"
         ? { rewardAmount: text("rewardAmount") ? Number(text("rewardAmount")) : null }
-        : { storageLocation: text("storageLocation") || null }),
+        : { storageLocation: text("storageLocation") || (initialItem ? "" : null) }),
     };
+    if (initialItem && photoMode === "replace" && files.length === 0) {
+      setError("Choose replacement photos, or select remove all.");
+      return;
+    }
     const invalid = validateReport(item) || validatePhotos(files);
     if (invalid) {
       setError(invalid);
       return;
     }
     const body = new FormData();
-    body.set("item", new Blob([JSON.stringify(item)], { type: "application/json" }));
-    files.forEach((file) => body.append("files", file));
+    if (initialItem) body.set("id", initialItem.id);
+    body.set(
+      "item",
+      new Blob(
+        [
+          JSON.stringify({
+            ...item,
+            ...(initialItem && photoMode !== "keep" ? { replaceAllImages: true } : {}),
+          }),
+        ],
+        { type: "application/json" },
+      ),
+    );
+    if (!initialItem || photoMode === "replace")
+      files.forEach((file) => body.append("files", file));
     try {
-      const result = await publish(body).unwrap();
+      const result = await (initialItem ? update(body) : publish(body)).unwrap();
       dispatch(itemsApi.util.resetApiState());
+      if (onSaved) {
+        onSaved();
+        return;
+      }
       router.push(`/items/${encodeURIComponent(result.data.id)}`);
     } catch (failure) {
       const status =
@@ -126,7 +162,7 @@ export function ReportItemForm() {
   if (!session.data?.user)
     return (
       <section className="container page-stack">
-        <h1>Report an item</h1>
+        <h1>{initialItem ? "Edit report" : "Report an item"}</h1>
         {session.isError && !("status" in session.error && session.error.status === 401) ? (
           <>
             <p>We could not check your session.</p>
@@ -148,14 +184,14 @@ export function ReportItemForm() {
     <section className="container page-stack report-page">
       <div className="hero">
         <p className="eyebrow">Bring belongings home</p>
-        <h1>Report an item</h1>
+        <h1>{initialItem ? "Edit report" : "Report an item"}</h1>
         <p className="muted">
           Share the details that will help someone recognize it. Fields marked * are required.
         </p>
       </div>
       <form onSubmit={submit} className="section-stack">
         <fieldset disabled={isLoading} className="report-fields section-stack">
-          <fieldset className="report-type">
+          <fieldset className="report-type" disabled={!!initialItem}>
             <legend>What happened? *</legend>
             {(["LOST", "FOUND"] as const).map((value) => (
               <label key={value}>
@@ -173,6 +209,7 @@ export function ReportItemForm() {
           <Input
             label="Item name *"
             name="name"
+            defaultValue={initialItem?.name}
             required
             maxLength={255}
             placeholder="e.g. Black leather wallet"
@@ -185,7 +222,7 @@ export function ReportItemForm() {
               name="categoryId"
               required
               disabled={categories.isFetching || categories.isError}
-              defaultValue=""
+              defaultValue={initialItem?.category?.id ?? ""}
             >
               <option value="">
                 {categories.isFetching ? "Loading categories…" : "Select a category"}
@@ -211,19 +248,60 @@ export function ReportItemForm() {
               className="ui-input"
               id="report-description"
               name="description"
+              defaultValue={initialItem?.description ?? ""}
               rows={5}
               maxLength={10000}
               placeholder="Add recognizable details. Keep private information out of your report."
             />
           </div>
           <div className="report-grid">
-            <Input label="Brand" name="brand" maxLength={100} />
-            <Input label="Color" name="color" maxLength={50} />
+            <Input
+              label="Brand"
+              name="brand"
+              defaultValue={initialItem?.brand ?? ""}
+              maxLength={100}
+            />
+            <Input
+              label="Color"
+              name="color"
+              defaultValue={initialItem?.color ?? ""}
+              maxLength={50}
+            />
           </div>
           <div className="section-stack">
             <h2>Photos</h2>
+            {initialItem && (
+              <div className="field">
+                <label htmlFor="photo-mode">Current photos ({initialItem.photoUrls.length})</label>
+                <select
+                  id="photo-mode"
+                  className="ui-input"
+                  value={photoMode}
+                  onChange={(event) => {
+                    setPhotoMode(event.target.value);
+                    setFiles([]);
+                  }}
+                >
+                  <option value="keep">Keep current photos</option>
+                  <option value="replace">Replace all photos</option>
+                  <option value="remove">Remove all photos</option>
+                </select>
+                {photoMode === "keep" && (
+                  <div className="report-photos">
+                    {initialItem.photoUrls.map((url, index) => (
+                      <div className="report-photo" key={index}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={`Current photo ${index + 1}`} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <Input
               label="Add photos"
+              disabled={!!initialItem && photoMode !== "replace"}
               type="file"
               accept="image/jpeg,image/png,image/webp"
               multiple
@@ -254,8 +332,24 @@ export function ReportItemForm() {
             label={type === "LOST" ? "When did you last see it?" : "When did you find it?"}
             type="datetime-local"
             name="dateTime"
+            defaultValue={
+              initialItem?.dateTime
+                ? (() => {
+                    const date = new Date(initialItem.dateTime);
+                    return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+                      .toISOString()
+                      .slice(0, 16);
+                  })()
+                : ""
+            }
             hint="Use your local date and time."
           />
+          {initialItem && (
+            <p className="muted">
+              Leaving date, coordinates or reward blank keeps the saved value. Use 0 to remove a
+              reward.
+            </p>
+          )}
           <p className="muted">
             Optional coordinates are public. Only share a location you are comfortable publishing.
           </p>
@@ -287,6 +381,7 @@ export function ReportItemForm() {
             <Input
               label="Reward amount (optional)"
               name="rewardAmount"
+              defaultValue={initialItem?.rewardAmount ?? ""}
               type="number"
               min={0}
               step="0.01"
@@ -295,6 +390,7 @@ export function ReportItemForm() {
             <Input
               label="Where is the item being kept?"
               name="storageLocation"
+              defaultValue={initialItem?.storageLocation ?? ""}
               maxLength={255}
               placeholder="e.g. Library reception desk"
             />
@@ -319,9 +415,15 @@ export function ReportItemForm() {
         <div className="row">
           <Button type="submit" loading={isLoading} disabled={!categories.data?.length || locating}>
             <Send size={18} />
-            Publish report
+            {initialItem ? "Save changes" : "Publish report"}
           </Button>
-          <Link href="/items">Back to items</Link>
+          {onCancel ? (
+            <Button variant="secondary" disabled={isLoading} onClick={onCancel}>
+              Cancel editing
+            </Button>
+          ) : (
+            <Link href="/items">Back to items</Link>
+          )}
         </div>
       </form>
     </section>
