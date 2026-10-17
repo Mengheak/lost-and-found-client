@@ -83,3 +83,12 @@ Keep the Google client ID and secret only on the backend. The Google OAuth clien
 The handshake uses Spring's default `JSESSIONID` cookie. Frontend and browser-facing API must use the **same hostname and protocol** so Spring's rotated handshake cookie reaches Next.js completion. Different localhost ports work; do not mix `localhost` and `127.0.0.1`. For production, use HTTPS and a shared public hostname/reverse proxy, route `/oauth2/**` and `/login/oauth2/**` to Spring, configure trusted forwarded headers, and enable secure Google cookies. Set `GOOGLE_API_PUBLIC_URL` in Next.js when the browser-facing API origin differs from the internal `API_BASE_URL`. Separate frontend/API hostnames are intentionally rejected by this integration; shared-parent-domain cookies are not configured.
 
 At implementation time the running backend rejected port 3000 and returned 404 for Google start on its allowed legacy origin. A live Google account sign-in remains pending backend enablement and user consent. Tests cover the server cookie handoff, restricted redirects, disabled configuration, single-use completion prerequisites, conflicts, and private token storage without accessing a real Google account.
+
+
+## My reports
+
+Signed-in users can open `/my-reports` from the header to page through their own reports, edit details, or confirm marking an open report as returned or closed. The server uses `/api/items/my`, `PUT /api/items/{id}`, and `PATCH /api/items/{id}/status` with the existing private session cookies; backend ownership checks remain authoritative. Private report cache entries are scoped to the signed-in user and discarded when no longer subscribed.
+
+The editor keeps current photos by default. Users can replace the entire photo set or remove all photos. Temporary signed image URLs are never sent back as permanent photo references. The backend treats null values as unchanged, so blank date, coordinates, and reward fields retain existing values; a reward of zero removes the reward amount. Text fields can be cleared. Item type cannot be changed.
+
+Contract tests cover authenticated pagination, ownership rejection, photo preservation/replacement, and refresh-cookie retention when an update fails. These tests mock the backend; authenticated editing against live accounts still needs acceptance testing.
