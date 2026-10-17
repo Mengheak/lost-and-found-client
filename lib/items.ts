@@ -14,7 +14,7 @@ export interface Item {
   status: ItemStatus;
   rewardAmount: number | null;
   storageLocation: string | null;
-  owner: { id: string; name: string; ratingAvg: number } | null;
+  owner: { id: string; name: string; ratingAvg: number, profilePhotoUrl: string } | null;
   category: Category | null;
   createdAt: string;
   returnedAt: string | null;

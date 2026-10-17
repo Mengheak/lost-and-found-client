@@ -2,18 +2,19 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, MapPin, CalendarDays, UserRound, RotateCcw } from "lucide-react";
+import { ArrowLeft, MapPin, CalendarDays, RotateCcw } from "lucide-react";
 import { useGetItemQuery } from "@/store/api/items-api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatItemDate, itemLocation, STATUS_LABELS } from "@/lib/items";
 import { ItemPhoto } from "./item-photo";
 import { ImageModal } from "../ui/image-modal";
+import { getFirstChar } from "@/lib/utils";
+import Image from "next/image";
 
 export function ItemDetail({ id }: { id: string }) {
   const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
   const { data: item, isLoading, isError, error, refetch } = useGetItemQuery(id, { skip: !validId, pollingInterval: 300000 });
-
   const [photoIndex, setPhotoIndex] = useState(0);
   const [openImageModal, setOpenImageModal] = useState<boolean>(false)
   const notFound = !validId || (error && "status" in error && error.status === 404);
@@ -63,7 +64,27 @@ export function ItemDetail({ id }: { id: string }) {
               <div className="detail-description"><h2>About this item</h2><p>{item.description || "No description provided."}</p></div>
               <dl className="item-facts"><div><dt>Brand</dt><dd>{item.brand || "Not specified"}</dd></div><div><dt>Color</dt><dd>{item.color || "Not specified"}</dd></div><div><dt>Posted</dt><dd>{formatItemDate(item.createdAt)}</dd></div>{item.returnedAt && <div><dt>Returned</dt><dd>{formatItemDate(item.returnedAt)}</dd></div>}</dl>
               {item.locationLat != null && item.locationLng != null && <a className="back-link" href={`https://www.openstreetmap.org/?mlat=${item.locationLat}&mlon=${item.locationLng}#map=16/${item.locationLat}/${item.locationLng}`} target="_blank" rel="noopener noreferrer">View location on map <MapPin size={16} aria-hidden="true" /></a>}
-              <div className="reporter"><UserRound size={22} aria-hidden="true" /><div><p className="muted">Reported by</p><strong>{item.owner?.name || "Community member"}</strong></div></div>
+              <div className="reporter">
+
+                {
+                  item.owner?.profilePhotoUrl ? 
+                  <div className="size-[45] flex items-center justify-center rounded-full overflow-hidden bg-primary">
+                    <Image src={item.owner.profilePhotoUrl} alt="profile picture" width={50} height={50}/>
+                  </div>
+                  
+                    :
+                    <div className="p-3 bg-primary rounded-full size-[45] flex items-center justify-center">
+                      <h3 className="">{getFirstChar(item.owner?.name as string)}</h3>
+                    </div>
+
+                }
+
+
+                <div>
+                  <p className="muted">Reported by</p>
+                  <strong>{item.owner?.name || "Community member"}</strong>
+                </div>
+              </div>
             </section>
           </article>}
   </div>;
