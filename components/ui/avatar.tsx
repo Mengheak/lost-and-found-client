@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { UserRound } from "lucide-react";
+import Image from "next/image";
 
 type AvatarProps = {
   src?: string | null;
@@ -18,8 +19,7 @@ export function Avatar({ src, name, size = "sm", decorative = false }: AvatarPro
   return <span className={`user-avatar user-avatar--${size}`}>
     {showPhoto ? (
       // Google and signed storage URLs are loaded directly, without an image proxy cache.
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={photo} alt={decorative ? "" : `${name}'s profile photo`} width={size === "lg" ? 96 : 32} height={size === "lg" ? 96 : 32}
+      <Image src={photo.toString()} alt={decorative ? "" : `${name}'s profile photo`} width={size === "lg" ? 96 : 32} height={size === "lg" ? 96 : 32}
         referrerPolicy="no-referrer" onError={() => setFailedSource(photo)} />
     ) : <span className="user-avatar-fallback" role={decorative ? undefined : "img"} aria-label={decorative ? undefined : `${name}'s profile`} aria-hidden={decorative || undefined}>
       <UserRound size={size === "lg" ? 40 : 18} aria-hidden="true" />
