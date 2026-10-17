@@ -23,7 +23,7 @@ function loadTs(relative) {
 }
 const { POST } = loadTs('app/api/auth/[action]/route.ts');
 const { validPassword } = loadTs('lib/auth.ts');
-const user = { id: 'test-user', name: 'Test', email: 'test@example.invalid', phone: null, role: 'USER', createdAt: '2026-01-01T00:00:00Z' };
+const user = { id: 'test-user', name: 'Test', email: 'test@example.invalid', phone: null, profilePhotoUrl: 'https://example.invalid/avatar.jpg', role: 'USER', createdAt: '2026-01-01T00:00:00Z' };
 const tokens = { accessToken: 'test-access', refreshToken: 'test-refresh', expiresInSeconds: 900, user };
 function request(action, body = {}, cookie = '', origin = 'http://localhost:3000') {
   return POST(new NextRequest(`http://localhost:3000/api/auth/${action}`, {
@@ -58,6 +58,14 @@ test('anonymous session is unauthorized and clears cookies', async t => {
   const result = await request('session');
   assert.equal(result.status, 401);
   assert.equal(result.cookies.get('lf_access').value, '');
+});
+test('session preserves profile photo URLs and normalizes missing photos to null', async t => {
+  const { profilePhotoUrl, ...withoutPhoto } = user;
+  backend(t, [{ body: { data: user } }, { body: { data: withoutPhoto } }]);
+  const withPhoto = await request('session', {}, 'lf_access=valid');
+  assert.equal((await withPhoto.json()).user.profilePhotoUrl, profilePhotoUrl);
+  const missingPhoto = await request('session', {}, 'lf_access=valid');
+  assert.equal((await missingPhoto.json()).user.profilePhotoUrl, null);
 });
 test('login hides tokens from response and creates HttpOnly cookies', async t => {
   const calls = backend(t, [{}]);

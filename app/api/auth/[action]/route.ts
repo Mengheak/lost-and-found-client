@@ -20,7 +20,7 @@ function setSession(result: NextResponse, tokens: Tokens) {
   return result;
 }
 function publicUser(user: AuthUser): AuthUser {
-  return { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, createdAt: user.createdAt };
+  return { id: user.id, name: user.name, email: user.email, phone: user.phone, profilePhotoUrl: user.profilePhotoUrl ?? null, role: user.role, createdAt: user.createdAt };
 }
 async function backend(path: string, body?: object, token?: string) {
   return fetch(new URL(`/api/${path}`, process.env.API_BASE_URL || "http://localhost:8080"), {

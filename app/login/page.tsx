@@ -1,4 +1,20 @@
-import type { Metadata } from "next";
+"use client"
+
 import { AuthForm } from "@/components/auth/auth-form";
-export const metadata: Metadata = { title: "Sign in" };
-export default function LoginPage() { return <AuthForm mode="login" />; }
+import { useSessionQuery } from "@/store/api/auth-api";
+import {  useRouter } from "next/navigation";
+import { useEffect } from "react";
+export default function LoginPage() { 
+    const router = useRouter()
+    const {data, isError } = useSessionQuery();
+    
+    const isAuthenticated = !!data && !isError;
+
+    useEffect(() => {
+        if(isAuthenticated){
+            router.back();
+        }
+    },[isAuthenticated, router])
+
+    return <AuthForm mode="login" />; 
+}

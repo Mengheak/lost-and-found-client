@@ -1,5 +1,6 @@
 export interface AuthUser {
   id: string; name: string; email: string; phone: string | null;
+  profilePhotoUrl: string | null;
   role: string; createdAt: string;
 }
 export interface Credentials { email: string; password: string }
