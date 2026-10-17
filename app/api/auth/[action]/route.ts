@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AuthUser } from "@/lib/auth";
+import { validateReport, validatePhotos } from "@/lib/report-item";
 import { validPassword } from "@/lib/auth";
 
 const ACCESS = "lf_access";
@@ -32,12 +33,13 @@ async function backend(path: string, body?: object, token?: string) {
 }
 
 export async function POST(request: NextRequest, context: { params: Promise<{ action: string }> }) {
-  // Same-origin JSON POSTs protect cookie-authenticated requests from CSRF.
-  if (request.headers.get("origin") !== request.nextUrl.origin || !request.headers.get("content-type")?.startsWith("application/json")) {
+  const { action } = await context.params;
+  const reporting = action === "report-item";
+  // Same-origin POSTs protect cookie-authenticated requests from CSRF.
+  if (request.headers.get("origin") !== request.nextUrl.origin || !request.headers.get("content-type")?.startsWith(reporting ? "multipart/form-data;" : "application/json")) {
     return response({ message: "Request not permitted" }, 403);
   }
-  const { action } = await context.params;
-  if (!["login", "register", "session", "logout", "google-start", "google-complete"].includes(action)) return response({ message: "Not found" }, 404);
+  if (!["login", "register", "session", "logout", "google-start", "google-complete", "report-item"].includes(action)) return response({ message: "Not found" }, 404);
   try {
     if (action === "google-start" || action === "google-complete") {
       // Spring's browser handshake cookie must reach both the backend callback
@@ -110,6 +112,33 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     }
     if (!tokens && (!profile || [401, 403].includes(profile.status))) return clearSession(response({ user: null }, 401));
     if (!tokens && !profile?.ok) return response({ message: "Session service unavailable" }, 503);
+    if (reporting) {
+      const finish = (result: NextResponse) => tokens ? setSession(result, tokens) : result;
+      try {
+        if (Number(request.headers.get("content-length")) > 51 * 1024 * 1024) return finish(response({ message: "Photos exceed the upload limit." }, 413));
+        const form = await request.formData();
+        const part = form.get("item");
+        if (!part) return finish(response({ message: "Missing report details." }, 400));
+        const item = JSON.parse(typeof part === "string" ? part : await part.text());
+        const files = form.getAll("files");
+        if (files.some(file => typeof file === "string")) return finish(response({ message: "Invalid photo upload." }, 400));
+        const error = validateReport(item) || validatePhotos(files as File[]);
+        if (error) return finish(response({ message: error }, 400));
+        const payload = new FormData();
+        payload.set("item", new Blob([JSON.stringify(item)], { type: "application/json" }));
+        for (const file of files as File[]) payload.append("files", file);
+        // Never retry a create automatically: the backend may already have saved it.
+        const upstream = await fetch(new URL("/api/items", process.env.API_BASE_URL || "http://localhost:8080"), {
+          method: "POST", headers: { Authorization: `Bearer ${access}` }, body: payload,
+          cache: "no-store", signal: AbortSignal.timeout(60000),
+        });
+        if (!upstream.ok) return finish(response({ message: upstream.status === 413 ? "Photos exceed the upload limit." : "Could not publish the report. Check your details and try again." }, upstream.status));
+        const result = await upstream.json();
+        return finish(response({ data: result.data }, 201));
+      } catch (error) {
+        return finish(response({ message: error instanceof SyntaxError ? "Invalid report or upload." : "The result could not be confirmed. Check Browse items before submitting again." }, error instanceof SyntaxError ? 400 : 503));
+      }
+    }
     if (action === "logout") {
       const loggedOut = await backend("auth/logout", {}, access).catch(() => null);
       if (!loggedOut || (!loggedOut.ok && loggedOut.status !== 401)) {

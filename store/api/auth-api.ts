@@ -13,6 +13,9 @@ const lockedQuery: typeof baseQuery = async (args, api, options) => {
 export const authApi = createApi({
   reducerPath: "authApi", baseQuery: lockedQuery, tagTypes: ["Session"],
   endpoints: (builder) => ({
+    reportItem: builder.mutation<{ data: import("@/lib/items").Item }, FormData>({
+      query: (body) => ({ url: "report-item", method: "POST", body, timeout: 75000 }),
+    }),
     startGoogle: builder.mutation<{ authorizationUrl: string }, void>({
       query: () => ({ url: "google-start", method: "POST", body: {} }),
     }),
@@ -34,4 +37,4 @@ export const authApi = createApi({
     }),
   }),
 });
-export const { useSessionQuery, useLoginMutation, useRegisterMutation, useLogoutMutation, useStartGoogleMutation, useCompleteGoogleMutation } = authApi;
+export const { useReportItemMutation, useSessionQuery, useLoginMutation, useRegisterMutation, useLogoutMutation, useStartGoogleMutation, useCompleteGoogleMutation } = authApi;
