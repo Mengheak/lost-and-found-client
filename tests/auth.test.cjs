@@ -17,7 +17,7 @@ function loadTs(relative) {
   mod.filename = filename;
   mod.paths = Module._nodeModulePaths(path.dirname(filename));
   const original = mod.require.bind(mod);
-  mod.require = (name) => name === '@/lib/auth' ? loadTs('lib/auth.ts') : original(name);
+  mod.require = (name) => name.startsWith('@/lib/') ? loadTs(name.replace('@/', '') + '.ts') : original(name);
   mod._compile(compiled, filename);
   return mod.exports;
 }
@@ -184,4 +184,63 @@ test('Google linking response is not treated as a successful sign-in', async t =
   const result = await request('google-complete', {}, 'JSESSIONID=completed; lf_google_pending=1');
   assert.equal(result.status, 401);
   assert.equal(result.cookies.get('lf_access'), undefined);
+});
+
+function reportRequest(item, files = [], cookie = 'lf_access=valid', origin = 'http://localhost:3000') {
+  const body = new FormData();
+  body.set('item', new Blob([JSON.stringify(item)], { type: 'application/json' }));
+  files.forEach(file => body.append('files', file));
+  return POST(new NextRequest('http://localhost:3000/api/auth/report-item', {
+    method: 'POST', headers: { origin, cookie }, body,
+  }), { params: Promise.resolve({ action: 'report-item' }) });
+}
+const report = { type: 'LOST', name: 'Wallet', categoryId: '12345678-1234-1234-1234-123456789012' };
+test('reports require authentication and reject cross-origin uploads', async t => {
+  const calls = backend(t, []);
+  assert.equal((await reportRequest(report, [], '')).status, 401);
+  assert.equal((await reportRequest(report, [], '', 'https://other.invalid')).status, 403);
+  assert.equal(calls.length, 0);
+});
+test('report forwards JSON part and files with a server-only bearer token', async t => {
+  const calls = backend(t, [{ body: { data: user } }, { status: 201, body: { data: { id: 'new-item' } } }]);
+  const file = new File(['image'], 'wallet.png', { type: 'image/png' });
+  const result = await reportRequest(report, [file]);
+  assert.equal(result.status, 201);
+  assert.deepEqual(await result.json(), { data: { id: 'new-item' } });
+  assert.equal(calls[1].path, '/api/items');
+  assert.equal(calls[1].options.headers.Authorization, 'Bearer valid');
+  assert.equal(calls[1].options.headers['Content-Type'], undefined);
+  assert.deepEqual(JSON.parse(await calls[1].options.body.get('item').text()), report);
+  assert.equal(calls[1].options.body.getAll('files')[0].name, 'wallet.png');
+});
+test('report validation rejects mixed type fields and unsafe uploads before creation', async t => {
+  const calls = backend(t, Array.from({ length: 3 }, () => ({ body: { data: user } })));
+  assert.equal((await reportRequest({ ...report, storageLocation: 'Desk' })).status, 400);
+  assert.equal((await reportRequest(report, [new File(['html'], 'photo.html', { type: 'text/html' })])).status, 400);
+  assert.equal((await reportRequest({ ...report, locationLat: 30 })).status, 400);
+  assert.equal(calls.length, 3);
+});
+test('rotated session cookies survive report validation failure', async t => {
+  backend(t, [{}]);
+  const result = await reportRequest({ ...report, name: '' }, [], 'lf_refresh=old');
+  assert.equal(result.status, 400);
+  assert.equal(result.cookies.get('lf_access').value, tokens.accessToken);
+  assert.equal(result.cookies.get('lf_refresh').value, tokens.refreshToken);
+});
+test('failed creation is not retried and retains rotated cookies', async t => {
+  const calls = backend(t, [{}, new Error('timeout')]);
+  const result = await reportRequest(report, [], 'lf_refresh=old');
+  assert.equal(result.status, 503);
+  assert.equal(calls.length, 2);
+  assert.equal(result.cookies.get('lf_refresh').value, tokens.refreshToken);
+});
+
+test('report validation enforces photo count, size and coordinate bounds', () => {
+  const { validateReport, validatePhotos, MAX_PHOTO_BYTES } = loadTs('lib/report-item.ts');
+  assert.equal(validateReport(report), null);
+  assert.ok(validateReport({ ...report, locationLat: 91, locationLng: 0 }));
+  assert.ok(validateReport({ ...report, type: 'FOUND', rewardAmount: 1 }));
+  assert.ok(validatePhotos(Array.from({ length: 11 }, () => new File(['x'], 'a.png', { type: 'image/png' }))));
+  assert.ok(validatePhotos([new File([new Uint8Array(MAX_PHOTO_BYTES + 1)], 'a.png', { type: 'image/png' })]));
+  assert.equal(validatePhotos([new File(['x'], 'a.png', { type: 'image/png' })]), null);
 });
