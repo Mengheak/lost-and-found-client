@@ -9,6 +9,7 @@ export function ConfirmationModal({
   children,
   confirmLabel = "Confirm",
   busy = false,
+  destructive = false,
   onConfirm,
   onCancel,
 }: {
@@ -17,6 +18,7 @@ export function ConfirmationModal({
   children: ReactNode;
   confirmLabel?: string;
   busy?: boolean;
+  destructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -49,7 +51,7 @@ export function ConfirmationModal({
           <Button variant="secondary" autoFocus disabled={busy} onClick={onCancel}>
             Cancel
           </Button>
-          <Button loading={busy} onClick={onConfirm}>
+          <Button variant={destructive ? "danger" : "primary"} loading={busy} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </div>
