@@ -411,3 +411,57 @@ test("management requires a session and retains refreshed cookies after upstream
   assert.equal(result.status, 403);
   assert.equal(result.cookies.get("lf_refresh").value, tokens.refreshToken);
 });
+
+test("delete forwards the authenticated DELETE and returns a confirmation", async (t) => {
+  const calls = backend(t, [{ body: { data: user } }, { body: { success: true, data: null } }]);
+  const result = await request("delete-item", { id: report.categoryId }, "lf_access=valid");
+  assert.equal(result.status, 200);
+  assert.deepEqual(await result.json(), { message: "Report deleted." });
+  assert.equal(calls[1].path, `/api/items/${report.categoryId}`);
+  assert.equal(calls[1].options.method, "DELETE");
+  assert.equal(calls[1].options.headers.Authorization, "Bearer valid");
+  assert.equal(calls[1].options.body, undefined);
+});
+
+test("delete rejects missing sessions, cross-origin requests and invalid IDs", async (t) => {
+  const calls = backend(t, [{ body: { data: user } }, { body: { data: user } }]);
+  assert.equal((await request("delete-item", { id: report.categoryId })).status, 401);
+  assert.equal(
+    (
+      await request(
+        "delete-item",
+        { id: report.categoryId },
+        "lf_access=valid",
+        "https://other.invalid",
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (await request("delete-item", { id: "../users/me" }, "lf_access=valid")).status,
+    400,
+  );
+  assert.equal((await request("delete-item", null, "lf_access=valid")).status, 400);
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every((call) => call.options.method === "GET"));
+});
+
+test("delete preserves ownership and missing-item errors and rotated cookies", async (t) => {
+  const calls = backend(t, [{}, { status: 403 }, { body: { data: user } }, { status: 404 }]);
+  const denied = await request("delete-item", { id: report.categoryId }, "lf_refresh=old");
+  assert.equal(denied.status, 403);
+  assert.equal(denied.cookies.get("lf_refresh").value, tokens.refreshToken);
+  assert.equal(calls[1].options.headers.Authorization, `Bearer ${tokens.accessToken}`);
+  assert.equal(
+    (await request("delete-item", { id: report.categoryId }, "lf_access=valid")).status,
+    404,
+  );
+});
+
+test("delete does not retry an uncertain result and retains the renewed session", async (t) => {
+  const calls = backend(t, [{}, new Error("timeout")]);
+  const result = await request("delete-item", { id: report.categoryId }, "lf_refresh=old");
+  assert.equal(result.status, 503);
+  assert.equal(calls.length, 2);
+  assert.equal(result.cookies.get("lf_refresh").value, tokens.refreshToken);
+});
