@@ -11,6 +11,7 @@ import { ItemPhoto } from "./item-photo";
 import { ImageModal } from "../ui/image-modal";
 import { getFirstChar } from "@/lib/utils";
 import Image from "next/image";
+import { ContactReporter } from "./contact-reporter";
 
 export function ItemDetail({ id }: { id: string }) {
   const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -146,7 +147,7 @@ export function ItemDetail({ id }: { id: string }) {
                   </div>
                 ) : (
                   <div className="p-3 bg-primary rounded-full size-[45] flex items-center justify-center">
-                    <h3 className="">{getFirstChar(item.owner?.name as string)}</h3>
+                    <h3 className="">{getFirstChar(item.owner?.name || "Community member")}</h3>
                   </div>
                 )}
                 <div>
@@ -154,6 +155,7 @@ export function ItemDetail({ id }: { id: string }) {
                   <strong>{item.owner?.name || "Community member"}</strong>
                 </div>
               </div>
+              <ContactReporter item={item} />
             </section>
           </article>
         )

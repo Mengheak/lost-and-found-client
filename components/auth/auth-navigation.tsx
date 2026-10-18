@@ -15,6 +15,9 @@ export function AuthNavigation() {
     );
   return data?.user && !isError ? (
     <>
+      <Link className="nav-link" href="/messages">
+        Messages
+      </Link>
       <Link className="nav-link" href="/my-reports">
         My reports
       </Link>
