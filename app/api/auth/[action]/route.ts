@@ -82,6 +82,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       "edit-item",
       "my-items",
       "item-status",
+      "delete-item",
     ].includes(action)
   )
     return response({ message: "Not found" }, 404);
@@ -229,7 +230,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     if (!tokens && (!profile || [401, 403].includes(profile.status)))
       return clearSession(response({ user: null }, 401));
     if (!tokens && !profile?.ok) return response({ message: "Session service unavailable" }, 503);
-    if (action === "my-items" || action === "item-status") {
+    if (action === "my-items" || action === "item-status" || action === "delete-item") {
       const finish = (result: NextResponse) => (tokens ? setSession(result, tokens) : result);
       try {
         const body = await request.json();
@@ -241,6 +242,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
             return finish(response({ message: "Invalid page." }, 400));
           path = `/api/items/my?page=${page}&size=12&sort=createdAt,desc`;
           options = { method: "GET" };
+        } else if (action === "delete-item") {
+          if (
+            typeof body?.id !== "string" ||
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.id)
+          )
+            return finish(response({ message: "Invalid report ID." }, 400));
+          path = `/api/items/${body.id}`;
+          options = { method: "DELETE" };
         } else {
           if (
             !/^[0-9a-f-]{36}$/i.test(body.id ?? "") ||
@@ -266,11 +275,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
                 message:
                   upstream.status === 403
                     ? "You can only manage your own reports."
-                    : "Could not load or update the report. Please refresh and try again.",
+                    : "Could not manage the report. Please refresh and try again.",
               },
               upstream.status,
             ),
           );
+        if (action === "delete-item") return finish(response({ message: "Report deleted." }));
         return finish(response(await upstream.json()));
       } catch (error) {
         return finish(

@@ -31,7 +31,7 @@ export const authApi = createApi({
     }),
     deleteItem: builder.mutation<{ message: string }, { id: string }>({
       query: (body) => ({
-        url: "",
+        url: "delete-item",
         method: "POST",
         body,
         timeout: 75000,
