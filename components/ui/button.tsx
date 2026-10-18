@@ -8,10 +8,24 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   loading?: boolean;
 };
 
-export function Button({ className, variant = "primary", size = "md", loading = false, disabled, children, type = "button", ...props }: ButtonProps) {
+export function Button({
+  className,
+  variant = "primary",
+  size = "md",
+  loading = false,
+  disabled,
+  children,
+  type = "button",
+  ...props
+}: ButtonProps) {
   return (
-    <button {...props} type={type} disabled={disabled || loading} aria-busy={loading || undefined}
-      className={cn("ui-button", `ui-button--${variant}`, `ui-button--${size}`, className)}>
+    <button
+      {...props}
+      type={type}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      className={cn("ui-button", `ui-button--${variant}`, `ui-button--${size}`, className)}
+    >
       {loading && <LoaderCircle className="spin" size={18} aria-hidden="true" />}
       {children}
     </button>

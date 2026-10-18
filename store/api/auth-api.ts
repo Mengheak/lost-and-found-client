@@ -29,6 +29,15 @@ export const authApi = createApi({
       providesTags: ["Reports"],
       keepUnusedDataFor: 0,
     }),
+    deleteItem: builder.mutation<{ message: string }, { id: string }>({
+      query: (body) => ({
+        url: "",
+        method: "POST",
+        body,
+        timeout: 75000,
+      }),
+      invalidatesTags: ["Reports"],
+    }),
     editItem: builder.mutation<{ data: import("@/lib/items").Item }, FormData>({
       query: (body) => ({ url: "edit-item", method: "POST", body, timeout: 75000 }),
       invalidatesTags: ["Reports"],
@@ -76,6 +85,7 @@ export const {
   useLoginMutation,
   useRegisterMutation,
   useLogoutMutation,
+  useDeleteItemMutation,
   useStartGoogleMutation,
   useCompleteGoogleMutation,
 } = authApi;
