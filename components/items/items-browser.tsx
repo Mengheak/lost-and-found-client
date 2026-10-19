@@ -1,7 +1,17 @@
 "use client";
 
+import {
+  Layers,
+  Search,
+  PackageCheck,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  PackageSearch,
+} from "lucide-react";
+
 import { useState, type FormEvent } from "react";
-import { Search, RotateCcw, ChevronLeft, ChevronRight, PackageSearch } from "lucide-react";
+
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useGetCategoriesQuery, useGetItemsQuery } from "@/store/api/items-api";
 import {
@@ -65,9 +75,8 @@ export function ItemsBrowser() {
             onChange={(e) => setDraftQuery(e.target.value)}
             maxLength={200}
           />
-          <Button type="submit">
+          <Button type="submit" iconLabel="Search">
             <Search size={18} aria-hidden="true" />
-            Search
           </Button>
         </form>
         <div className="filter-row">
@@ -78,8 +87,15 @@ export function ItemsBrowser() {
                 variant={filters.type === type ? "primary" : "secondary"}
                 aria-pressed={filters.type === type}
                 onClick={() => dispatch(setType(type))}
+                iconLabel={ITEM_TYPE_LABELS[type]}
               >
-                {ITEM_TYPE_LABELS[type]}
+                {type === "all" ? (
+                  <Layers size={18} aria-hidden="true" />
+                ) : type === "lost" ? (
+                  <Search size={18} aria-hidden="true" />
+                ) : (
+                  <PackageCheck size={18} aria-hidden="true" />
+                )}
               </Button>
             ))}
           </div>
@@ -116,17 +132,20 @@ export function ItemsBrowser() {
               ))}
             </select>
           </div>
-          <Button variant="ghost" onClick={reset} disabled={!filtered && !query}>
+          <Button variant="ghost" onClick={reset} disabled={!filtered && !query} iconLabel="Reset">
             <RotateCcw size={16} aria-hidden="true" />
-            Reset
           </Button>
         </div>
         {categories.isError && (
           <div role="alert" className="row">
             <p>Categories could not be loaded.</p>
-            <Button variant="secondary" size="sm" onClick={() => categories.refetch()}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => categories.refetch()}
+              iconLabel="Retry categories"
+            >
               <RotateCcw size={18} aria-hidden="true" />
-              Retry categories
             </Button>
           </div>
         )}
@@ -146,9 +165,8 @@ export function ItemsBrowser() {
           <div className="browse-message" role="alert">
             <h2>We couldn’t load the items</h2>
             <p className="muted">The connection may be interrupted. Please try again.</p>
-            <Button onClick={() => refetch()}>
+            <Button onClick={() => refetch()} iconLabel="Try again">
               <RotateCcw size={18} aria-hidden="true" />
-              Try again
             </Button>
           </div>
         ) : !data ? (
@@ -167,15 +185,13 @@ export function ItemsBrowser() {
                 : "New lost and found reports will appear here."}
             </p>
             {filtered && (
-              <Button variant="secondary" onClick={reset}>
+              <Button variant="secondary" onClick={reset} iconLabel="Clear filters">
                 <RotateCcw size={18} aria-hidden="true" />
-                Clear filters
               </Button>
             )}
             {filters.page > 0 && (
-              <Button onClick={() => dispatch(setPage(0))}>
+              <Button onClick={() => dispatch(setPage(0))} iconLabel="Back to first page">
                 <ChevronLeft size={18} aria-hidden="true" />
-                Back to first page
               </Button>
             )}
           </div>
@@ -192,9 +208,9 @@ export function ItemsBrowser() {
               variant="secondary"
               disabled={data.first || isFetching}
               onClick={() => dispatch(setPage(filters.page - 1))}
+              iconLabel="Previous"
             >
               <ChevronLeft size={18} aria-hidden="true" />
-              Previous
             </Button>
             <span>
               Page {data.page + 1} of {data.totalPages}
@@ -203,8 +219,8 @@ export function ItemsBrowser() {
               variant="secondary"
               disabled={data.last || isFetching}
               onClick={() => dispatch(setPage(filters.page + 1))}
+              iconLabel="Next"
             >
-              Next
               <ChevronRight size={18} aria-hidden="true" />
             </Button>
           </nav>

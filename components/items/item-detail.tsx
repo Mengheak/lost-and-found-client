@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, MapPin, CalendarDays, RotateCcw } from "lucide-react";
 import { useGetItemQuery } from "@/store/api/items-api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconLink } from "@/components/ui/icon-link";
 import { formatItemDate, itemLocation, STATUS_LABELS } from "@/lib/items";
 import { ItemPhoto } from "./item-photo";
 import { ImageModal } from "../ui/image-modal";
@@ -26,10 +26,9 @@ export function ItemDetail({ id }: { id: string }) {
   const notFound = !validId || (error && "status" in error && error.status === 404);
   return (
     <div className="container page-stack">
-      <Link className="back-link" href="/items">
+      <IconLink label="Back to items" href="/items">
         <ArrowLeft size={18} aria-hidden="true" />
-        Back to items
-      </Link>
+      </IconLink>
       {isLoading ? (
         <div role="status" className="browse-message">
           Loading item details…
@@ -43,9 +42,8 @@ export function ItemDetail({ id }: { id: string }) {
         <div className="browse-message" role="alert">
           <h1>Unable to load this item</h1>
           <p className="muted">Please check your connection and try again.</p>
-          <Button onClick={() => refetch()}>
+          <Button onClick={() => refetch()} iconLabel="Try again">
             <RotateCcw size={18} aria-hidden="true" />
-            Try again
           </Button>
         </div>
       ) : (
@@ -126,12 +124,14 @@ export function ItemDetail({ id }: { id: string }) {
               </dl>
               {item.locationLat != null && item.locationLng != null && (
                 <a
-                  className="back-link"
+                  className="ui-button ui-button--secondary icon-action"
+                  aria-label="View location on map"
+                  title="View location on map"
                   href={`https://www.openstreetmap.org/?mlat=${item.locationLat}&mlon=${item.locationLng}#map=16/${item.locationLat}/${item.locationLng}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  View location on map <MapPin size={16} aria-hidden="true" />
+                  <MapPin size={18} aria-hidden="true" />
                 </a>
               )}
               <div className="reporter">

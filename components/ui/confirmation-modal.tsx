@@ -1,5 +1,7 @@
 "use client";
 
+import { X, Trash2, Check } from "lucide-react";
+
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -48,11 +50,26 @@ export function ConfirmationModal({
         <h2 id={titleId}>{title}</h2>
         <div id={descriptionId}>{children}</div>
         <div className="row">
-          <Button variant="secondary" autoFocus disabled={busy} onClick={onCancel}>
-            Cancel
+          <Button
+            variant="secondary"
+            autoFocus
+            disabled={busy}
+            onClick={onCancel}
+            iconLabel="Cancel"
+          >
+            <X size={18} aria-hidden="true" />
           </Button>
-          <Button variant={destructive ? "danger" : "primary"} loading={busy} onClick={onConfirm}>
-            {confirmLabel}
+          <Button
+            variant={destructive ? "danger" : "primary"}
+            loading={busy}
+            onClick={onConfirm}
+            iconLabel={confirmLabel}
+          >
+            {destructive ? (
+              <Trash2 size={18} aria-hidden="true" />
+            ) : (
+              <Check size={18} aria-hidden="true" />
+            )}
           </Button>
         </div>
       </div>

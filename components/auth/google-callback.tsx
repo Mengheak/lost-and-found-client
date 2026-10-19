@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import { IconLink } from "@/components/ui/icon-link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, LogIn } from "lucide-react";
 import { useCompleteGoogleMutation } from "@/store/api/auth-api";
 import { googleAuthError } from "@/lib/google-auth";
 
@@ -36,9 +36,9 @@ export function GoogleCallback() {
             <p role="alert" className="field-error">
               {message}
             </p>
-            <Link href="/login" className="ui-button ui-button--primary no-underline">
-              Back to sign in
-            </Link>
+            <IconLink href="/login" label="Back to sign in">
+              <LogIn size={18} aria-hidden="true" />
+            </IconLink>
           </>
         ) : (
           <p role="status" className="row">

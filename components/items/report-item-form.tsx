@@ -1,9 +1,12 @@
 "use client";
 
+import { RotateCcw, X, ArrowLeft, LogIn, MapPin, Save, Send, Upload } from "lucide-react";
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogIn, MapPin, Send, Upload, X } from "lucide-react";
+
+import { IconLink } from "@/components/ui/icon-link";
 import { useSessionQuery, useReportItemMutation, useEditItemMutation } from "@/store/api/auth-api";
 import { itemsApi, useGetCategoriesQuery } from "@/store/api/items-api";
 import { useAppDispatch } from "@/store/hooks";
@@ -24,7 +27,12 @@ function PhotoPreview({ file, remove }: { file: File; remove: () => void }) {
       {/* Local object URLs do not need the remote image optimizer. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img ref={image} alt={file.name} />
-      <Button variant="secondary" onClick={remove} aria-label={`Remove ${file.name}`}>
+      <Button
+        variant="secondary"
+        onClick={remove}
+        aria-label={`Remove ${file.name}`}
+        iconLabel={`Remove ${file.name}`}
+      >
         <X size={18} />
       </Button>
     </div>
@@ -166,15 +174,16 @@ export function ReportItemForm({
         {session.isError && !("status" in session.error && session.error.status === 401) ? (
           <>
             <p>We could not check your session.</p>
-            <Button onClick={() => session.refetch()}>Try again</Button>
+            <Button onClick={() => session.refetch()} iconLabel="Try again">
+              <RotateCcw size={18} aria-hidden="true" />
+            </Button>
           </>
         ) : (
           <>
             <p>Sign in to report a lost or found item.</p>
-            <Link className="ui-button ui-button--primary" href="/login">
+            <IconLink label="Sign in" href="/login">
               <LogIn size={18} />
-              Sign in
-            </Link>
+            </IconLink>
           </>
         )}
       </section>
@@ -236,8 +245,12 @@ export function ReportItemForm({
             {categories.isError && (
               <>
                 <p role="alert">Categories could not be loaded.</p>
-                <Button variant="secondary" onClick={() => categories.refetch()}>
-                  Retry categories
+                <Button
+                  variant="secondary"
+                  onClick={() => categories.refetch()}
+                  iconLabel="Retry categories"
+                >
+                  <RotateCcw size={18} aria-hidden="true" />
                 </Button>
               </>
             )}
@@ -353,9 +366,13 @@ export function ReportItemForm({
           <p className="muted">
             Optional coordinates are public. Only share a location you are comfortable publishing.
           </p>
-          <Button variant="secondary" onClick={locate} loading={locating}>
+          <Button
+            variant="secondary"
+            onClick={locate}
+            loading={locating}
+            iconLabel="Use my current location"
+          >
             <MapPin size={18} />
-            Use my current location
           </Button>
           <div className="report-grid">
             <Input
@@ -413,16 +430,32 @@ export function ReportItemForm({
           </div>
         )}
         <div className="row">
-          <Button type="submit" loading={isLoading} disabled={!categories.data?.length || locating}>
-            <Send size={18} />
-            {initialItem ? "Save changes" : "Publish report"}
+          <Button
+            type="submit"
+            iconLabel={initialItem ? "Save changes" : undefined}
+            loading={isLoading}
+            disabled={!categories.data?.length || locating}
+          >
+            {initialItem ? (
+              <Save size={18} aria-hidden="true" />
+            ) : (
+              <Send size={18} aria-hidden="true" />
+            )}
+            {!initialItem && "Publish report"}
           </Button>
           {onCancel ? (
-            <Button variant="secondary" disabled={isLoading} onClick={onCancel}>
-              Cancel editing
+            <Button
+              variant="secondary"
+              disabled={isLoading}
+              onClick={onCancel}
+              iconLabel="Cancel editing"
+            >
+              <X size={18} aria-hidden="true" />
             </Button>
           ) : (
-            <Link href="/items">Back to items</Link>
+            <IconLink label="Back to items" href="/items">
+              <ArrowLeft size={18} aria-hidden="true" />
+            </IconLink>
           )}
         </div>
       </form>

@@ -104,13 +104,13 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               size="sm"
               onClick={() => setVisible(!visible)}
               aria-pressed={visible}
+              iconLabel={visible ? "Hide password" : "Show password"}
             >
               {visible ? (
                 <EyeOff size={18} aria-hidden="true" />
               ) : (
                 <Eye size={18} aria-hidden="true" />
               )}
-              {visible ? "Hide password" : "Show password"}
             </Button>
           </div>
           {register && (
@@ -131,13 +131,13 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             type="submit"
             disabled={googleBusy}
             loading={loginState.isLoading || registerState.isLoading}
+            iconLabel={register ? "Create account" : "Sign in"}
           >
             {register ? (
               <UserPlus size={18} aria-hidden="true" />
             ) : (
               <LogIn size={18} aria-hidden="true" />
             )}
-            {register ? "Create account" : "Sign in"}
           </Button>
         </form>
         <p className="muted">

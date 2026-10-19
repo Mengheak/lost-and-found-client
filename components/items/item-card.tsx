@@ -26,8 +26,8 @@ export function ItemCard({ item }: { item: Item }) {
             <CalendarDays size={16} aria-hidden="true" />
             {formatItemDate(item.dateTime || item.createdAt)}
           </p>
-          <span className="item-card-action">
-            View details <ArrowUpRight size={18} aria-hidden="true" />
+          <span className="item-card-action" title="View details">
+            <ArrowUpRight size={18} aria-hidden="true" />
           </span>
         </div>
       </Link>

@@ -35,6 +35,7 @@ export function GoogleSignIn({
         disabled={disabled}
         loading={isLoading || leaving}
         onClick={signIn}
+        iconLabel="Continue with Google"
       >
         {!isLoading && !leaving && (
           <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -56,7 +57,6 @@ export function GoogleSignIn({
             />
           </svg>
         )}
-        Continue with Google
       </Button>
       {error && (
         <p role="alert" className="field-error">

@@ -52,9 +52,8 @@ export function Account() {
         <Card className="section-stack">
           <h1>Unable to load your account</h1>
           <p role="alert">Please try again when the account service is available.</p>
-          <Button onClick={() => session.refetch()}>
+          <Button onClick={() => session.refetch()} iconLabel="Try again">
             <RotateCcw size={18} aria-hidden="true" />
-            Try again
           </Button>
         </Card>
       </div>
@@ -97,9 +96,13 @@ export function Account() {
           </p>
         )}
         <div>
-          <Button variant="secondary" loading={logoutState.isLoading} onClick={signOut}>
-            {!logoutState.isLoading && <LogOut size={18} aria-hidden="true" />}Sign out of all
-            devices
+          <Button
+            variant="secondary"
+            loading={logoutState.isLoading}
+            onClick={signOut}
+            iconLabel="Sign out of all devices"
+          >
+            {!logoutState.isLoading && <LogOut size={18} aria-hidden="true" />}
           </Button>
         </div>
       </Card>

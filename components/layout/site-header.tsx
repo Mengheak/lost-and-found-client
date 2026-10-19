@@ -13,9 +13,13 @@ export function SiteHeader() {
           <span>{APP.name}</span>
         </Link>
         <nav aria-label="Main navigation" className="row">
-          <Link className="nav-link" href={ROUTES.items}>
+          <Link
+            className="nav-link icon-action"
+            href={ROUTES.items}
+            aria-label="Browse items"
+            title="Browse items"
+          >
             <Search size={18} aria-hidden="true" />
-            Browse items
           </Link>
           <Link className="nav-link" href={ROUTES.reportItem}>
             <Plus size={18} aria-hidden="true" />

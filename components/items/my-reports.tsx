@@ -1,8 +1,24 @@
 "use client";
 
+import {
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  LogIn,
+  CalendarDays,
+  Check,
+  MapPin,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
+
 import { useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Check, MapPin, Pencil, Plus, Trash2, X } from "lucide-react";
+
+import { IconLink } from "@/components/ui/icon-link";
+
 import {
   useSessionQuery,
   useMyItemsQuery,
@@ -33,12 +49,16 @@ export function MyReports() {
         {session.isError && !("status" in session.error && session.error.status === 401) ? (
           <>
             <p>Could not check your session.</p>
-            <Button onClick={() => session.refetch()}>Retry</Button>
+            <Button onClick={() => session.refetch()} iconLabel="Retry">
+              <RotateCcw size={18} aria-hidden="true" />
+            </Button>
           </>
         ) : (
           <>
             <p>Sign in to manage your reports.</p>
-            <Link href="/login">Sign in</Link>
+            <IconLink href="/login" label="Sign in">
+              <LogIn size={18} aria-hidden="true" />
+            </IconLink>
           </>
         )}
       </section>
@@ -120,8 +140,12 @@ function ReportsList({ userId }: { userId: string }) {
         <div role="alert" className="section-stack">
           <p>Could not load your reports. Your session may have expired.</p>
           <div className="row">
-            <Button onClick={() => reports.refetch()}>Retry</Button>
-            <Link href="/login">Sign in</Link>
+            <Button onClick={() => reports.refetch()} iconLabel="Retry">
+              <RotateCcw size={18} aria-hidden="true" />
+            </Button>
+            <IconLink href="/login" label="Sign in">
+              <LogIn size={18} aria-hidden="true" />
+            </IconLink>
           </div>
         </div>
       ) : (
@@ -171,9 +195,9 @@ function ReportsList({ userId }: { userId: string }) {
                         variant="secondary"
                         disabled={isLoading}
                         onClick={() => setEditing(item)}
+                        iconLabel="Edit"
                       >
                         <Pencil size={18} />
-                        Edit
                       </Button>
                       {item.status === "OPEN" && (
                         <>
@@ -183,9 +207,9 @@ function ReportsList({ userId }: { userId: string }) {
                               setError("");
                               setPending({ item, status: "RETURNED" });
                             }}
+                            iconLabel="Mark returned"
                           >
                             <Check size={18} />
-                            Mark returned
                           </Button>
                           <Button
                             variant="ghost"
@@ -193,9 +217,9 @@ function ReportsList({ userId }: { userId: string }) {
                               setError("");
                               setPending({ item, status: "CLOSED" });
                             }}
+                            iconLabel="Close report"
                           >
                             <X size={18} />
-                            Close report
                           </Button>
                         </>
                       )}
@@ -208,9 +232,9 @@ function ReportsList({ userId }: { userId: string }) {
                           setMessage("");
                           setPending({ item, status: "DELETE" });
                         }}
+                        iconLabel="Delete"
                       >
                         <Trash2 size={18} aria-hidden="true" />
-                        Delete
                       </Button>
                     </div>
                   </li>
@@ -225,8 +249,9 @@ function ReportsList({ userId }: { userId: string }) {
           variant="secondary"
           disabled={page === 0 || reports.isFetching}
           onClick={() => setPage(page - 1)}
+          iconLabel="Previous"
         >
-          Previous
+          <ChevronLeft size={18} aria-hidden="true" />
         </Button>
         <span>Page {page + 1}</span>
         <Button
@@ -238,8 +263,9 @@ function ReportsList({ userId }: { userId: string }) {
             reports.isError
           }
           onClick={() => setPage(page + 1)}
+          iconLabel="Next"
         >
-          Next
+          <ChevronRight size={18} aria-hidden="true" />
         </Button>
       </nav>
       <ConfirmationModal

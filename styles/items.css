@@ -72,7 +72,7 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.5rem;
-  flex: 0 0 19rem;
+  flex: 0 0 auto;
 }
 .report-delete {
   color: var(--danger);
@@ -103,7 +103,7 @@
   .report-row-photo {
     width: 4.5rem;
   }
-  .report-row-actions .ui-button {
+  .report-row-actions .ui-button:not(.icon-action) {
     flex: 1 1 auto;
   }
 }
@@ -320,7 +320,7 @@
   .filter-row > .row {
     width: 100%;
   }
-  .filter-row > .row .ui-button {
+  .filter-row > .row .ui-button:not(.icon-action) {
     flex: 1;
     padding-inline: 0.5rem;
   }
