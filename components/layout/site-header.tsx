@@ -6,7 +6,7 @@ import { AuthNavigation } from "@/components/auth/auth-navigation";
 
 export function SiteHeader() {
   return (
-    <header className="site-header">
+    <header className="site-header border-b border-gray-200">
       <div className="container header-inner">
         <Link className="brand" href={ROUTES.home}>
           <Image src={APP.logo} alt="" width={40} height={40} />
