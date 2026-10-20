@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LogIn, ClipboardList } from "lucide-react";
+import { LogIn, ClipboardList, MessageCircle } from "lucide-react";
 import { useSessionQuery } from "@/store/api/auth-api";
 import { Avatar } from "@/components/ui/avatar";
 
@@ -15,6 +15,14 @@ export function AuthNavigation() {
     );
   return data?.user && !isError ? (
     <>
+      <Link
+        className="nav-link icon-action"
+        href="/messages"
+        aria-label="Messages"
+        title="Messages"
+      >
+        <MessageCircle size={18} aria-hidden="true" />
+      </Link>
       <Link
         className="nav-link icon-action"
         href="/my-reports"
