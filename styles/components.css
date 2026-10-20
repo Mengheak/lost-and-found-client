@@ -21,8 +21,8 @@
   background: var(--primary-dark);
 }
 .ui-button--secondary {
-  background: var(--surface);
-  border-color: var(--surface-border);
+  background: var(--surface-alt);
+  border-color: transparent;
   color: var(--ink);
 }
 .ui-button--secondary:hover,
@@ -72,9 +72,9 @@
   min-width: 0;
   padding: clamp(1.25rem, 3vw, 1.75rem);
   background: var(--surface);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   overflow-wrap: anywhere;
 }
 .ui-badge {
@@ -111,11 +111,18 @@
   width: 100%;
   min-width: 0;
   min-height: 48px;
-  border: 1px solid var(--surface-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   padding: 0.75rem 1rem;
-  background: var(--surface);
+  background: var(--surface-alt);
   color: var(--ink);
+}
+.ui-input:hover:not(:disabled) {
+  border-color: var(--surface-border);
+}
+.ui-input:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 .ui-input::placeholder {
   color: var(--muted);
