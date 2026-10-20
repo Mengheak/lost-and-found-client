@@ -465,3 +465,108 @@ test("delete does not retry an uncertain result and retains the renewed session"
   assert.equal(calls.length, 2);
   assert.equal(result.cookies.get("lf_refresh").value, tokens.refreshToken);
 });
+
+test("messaging starts a conversation using only the item ID and authenticated token", async (t) => {
+  const calls = backend(t, [
+    { body: { data: user } },
+    { body: { data: { id: report.categoryId } } },
+  ]);
+  const result = await request(
+    "start-conversation",
+    { itemId: report.categoryId, userId: "other" },
+    "lf_access=valid",
+  );
+  assert.equal(result.status, 200);
+  assert.equal(calls[1].path, "/api/conversations");
+  assert.equal(calls[1].options.method, "POST");
+  assert.deepEqual(JSON.parse(calls[1].options.body), { itemId: report.categoryId });
+  assert.equal(calls[1].options.headers.Authorization, "Bearer valid");
+});
+
+test("conversation and message reads use the backend's participant-scoped endpoints", async (t) => {
+  const calls = backend(
+    t,
+    Array.from({ length: 6 }, () => ({ body: { data: user } })),
+  );
+  for (const action of ["conversations", "conversation", "messages"])
+    assert.equal(
+      (await request(action, { id: report.categoryId, page: 1 }, "lf_access=valid")).status,
+      200,
+    );
+  assert.equal(calls[1].path, "/api/conversations");
+  assert.equal(calls[3].path, `/api/conversations/${report.categoryId}`);
+  assert.equal(calls[5].path, `/api/conversations/${report.categoryId}/messages`);
+  assert.ok(calls.every((call) => call.options.method === "GET"));
+});
+
+test("sending messages forwards text without accepting a forged sender or image URL", async (t) => {
+  const calls = backend(t, [
+    { body: { data: user } },
+    { status: 201, body: { data: { text: "Hello" } } },
+  ]);
+  const result = await request(
+    "send-message",
+    {
+      id: report.categoryId,
+      text: " Hello ",
+      senderId: "other",
+      imageUrl: "https://example.invalid",
+    },
+    "lf_access=valid",
+  );
+  assert.equal(result.status, 201);
+  assert.equal(calls[1].path, `/api/conversations/${report.categoryId}/messages`);
+  assert.equal(calls[1].options.method, "POST");
+  assert.deepEqual(JSON.parse(calls[1].options.body), { text: "Hello" });
+});
+
+test("messaging rejects invalid identifiers, pagination and empty or oversized text", async (t) => {
+  const invalid = [
+    ["conversation", { id: "../users" }],
+    ["start-conversation", null],
+    ["conversations", { page: -1 }],
+    ["messages", { id: report.categoryId, page: 0.5 }],
+    ["send-message", { id: report.categoryId, text: "  " }],
+    ["send-message", { id: report.categoryId, text: "x".repeat(10001) }],
+  ];
+  const calls = backend(
+    t,
+    invalid.map(() => ({ body: { data: user } })),
+  );
+  for (const [action, body] of invalid)
+    assert.equal((await request(action, body, "lf_access=valid")).status, 400);
+  assert.equal(calls.length, invalid.length);
+  assert.ok(calls.every((call) => call.path === "/api/users/me"));
+});
+
+test("messaging requires a session and same-origin requests", async (t) => {
+  const calls = backend(t, []);
+  assert.equal((await request("conversations")).status, 401);
+  assert.equal(
+    (
+      await request(
+        "send-message",
+        { id: report.categoryId, text: "Hello" },
+        "lf_access=valid",
+        "https://other.invalid",
+      )
+    ).status,
+    403,
+  );
+  assert.equal(calls.length, 0);
+});
+
+test("messaging preserves participant errors and refreshed cookies without retrying a send", async (t) => {
+  const calls = backend(t, [{}, { status: 403 }, {}, new Error("timeout")]);
+  const denied = await request("messages", { id: report.categoryId }, "lf_refresh=old");
+  assert.equal(denied.status, 403);
+  assert.equal(denied.cookies.get("lf_refresh").value, tokens.refreshToken);
+  const uncertain = await request(
+    "send-message",
+    { id: report.categoryId, text: "Hello" },
+    "lf_refresh=old",
+  );
+  assert.equal(uncertain.status, 503);
+  assert.equal(uncertain.cookies.get("lf_refresh").value, tokens.refreshToken);
+  assert.equal(calls.length, 4);
+});

@@ -83,6 +83,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       "my-items",
       "item-status",
       "delete-item",
+      "conversations",
+      "conversation",
+      "start-conversation",
+      "messages",
+      "send-message",
     ].includes(action)
   )
     return response({ message: "Not found" }, 404);
@@ -230,6 +235,60 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     if (!tokens && (!profile || [401, 403].includes(profile.status)))
       return clearSession(response({ user: null }, 401));
     if (!tokens && !profile?.ok) return response({ message: "Session service unavailable" }, 503);
+    if (
+      ["conversations", "conversation", "start-conversation", "messages", "send-message"].includes(
+        action,
+      )
+    ) {
+      const finish = (result: NextResponse) => (tokens ? setSession(result, tokens) : result);
+      try {
+        const body = await request.json();
+        const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const id = action === "start-conversation" ? body?.itemId : body?.id;
+        if (action !== "conversations" && (typeof id !== "string" || !uuid.test(id)))
+          return finish(response({ message: "Invalid item or conversation ID." }, 400));
+        const page = body?.page ?? 0;
+        if (!Number.isInteger(page) || page < 0 || page > 100000)
+          return finish(response({ message: "Invalid page." }, 400));
+        let path = "/api/conversations";
+        let options: RequestInit = { method: "GET" };
+        if (action === "start-conversation") {
+          options = { method: "POST", body: JSON.stringify({ itemId: id }) };
+        } else if (action === "conversations") {
+          path += `?page=${page}&size=20&sort=createdAt,desc`;
+        } else {
+          path += `/${id}`;
+          if (action === "messages") path += `/messages?page=${page}&size=30&sort=createdAt,desc`;
+          if (action === "send-message") {
+            if (typeof body.text !== "string" || !body.text.trim() || body.text.length > 10000)
+              return finish(
+                response({ message: "Enter a message of up to 10,000 characters." }, 400),
+              );
+            path += "/messages";
+            options = { method: "POST", body: JSON.stringify({ text: body.text.trim() }) };
+          }
+        }
+        const upstream = await fetch(
+          new URL(path, process.env.API_BASE_URL || "http://localhost:8080"),
+          {
+            ...options,
+            headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
+            cache: "no-store",
+            signal: AbortSignal.timeout(10000),
+          },
+        );
+        if (!upstream.ok)
+          return finish(response({ message: "Messaging request failed." }, upstream.status));
+        return finish(response(await upstream.json(), upstream.status));
+      } catch (error) {
+        return finish(
+          response(
+            { message: "Could not confirm the request. Refresh before retrying." },
+            error instanceof SyntaxError ? 400 : 503,
+          ),
+        );
+      }
+    }
     if (action === "my-items" || action === "item-status" || action === "delete-item") {
       const finish = (result: NextResponse) => (tokens ? setSession(result, tokens) : result);
       try {
