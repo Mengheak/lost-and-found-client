@@ -14,7 +14,7 @@ const lockedQuery: typeof baseQuery = async (args, api, options) => {
 export const authApi = createApi({
   reducerPath: "authApi",
   baseQuery: lockedQuery,
-  tagTypes: ["Session", "Reports"],
+  tagTypes: ["Session", "Reports", "Conversations", "Messages"],
   endpoints: (builder) => ({
     myItems: builder.query<
       import("@/lib/items").Page<import("@/lib/items").Item>,

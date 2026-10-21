@@ -11,6 +11,7 @@ import { ItemPhoto } from "./item-photo";
 import { ImageModal } from "../ui/image-modal";
 import { getFirstChar } from "@/lib/utils";
 import Image from "next/image";
+import { ContactReporter } from "./contact-reporter";
 
 export function ItemDetail({ id }: { id: string }) {
   const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -98,6 +99,29 @@ export function ItemDetail({ id }: { id: string }) {
                 <CalendarDays size={20} aria-hidden="true" />
                 {item.type === "LOST" ? "Lost" : "Found"}: {formatItemDate(item.dateTime)}
               </p>
+              <section className="section-stack" aria-label="Contact reporter">
+                <div className="reporter">
+                  {item.owner?.profilePhotoUrl ? (
+                    <div className="size-[45] flex items-center justify-center rounded-full overflow-hidden bg-primary">
+                      <Image
+                        src={item.owner.profilePhotoUrl}
+                        alt="profile picture"
+                        width={50}
+                        height={50}
+                      />
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-primary rounded-full size-[45] flex items-center justify-center">
+                      <h3 className="">{getFirstChar(item.owner?.name || "Community member")}</h3>
+                    </div>
+                  )}
+                  <div>
+                    <p className="muted">Reported by</p>
+                    <strong>{item.owner?.name || "Community member"}</strong>
+                  </div>
+                </div>
+                <ContactReporter item={item} />
+              </section>
               <div className="detail-description">
                 <h2>About this item</h2>
                 <p>{item.description || "No description provided."}</p>
@@ -134,26 +158,6 @@ export function ItemDetail({ id }: { id: string }) {
                   <MapPin size={18} aria-hidden="true" />
                 </a>
               )}
-              <div className="reporter">
-                {item.owner?.profilePhotoUrl ? (
-                  <div className="size-[45] flex items-center justify-center rounded-full overflow-hidden bg-primary">
-                    <Image
-                      src={item.owner.profilePhotoUrl}
-                      alt="profile picture"
-                      width={50}
-                      height={50}
-                    />
-                  </div>
-                ) : (
-                  <div className="p-3 bg-primary rounded-full size-[45] flex items-center justify-center">
-                    <h3 className="">{getFirstChar(item.owner?.name as string)}</h3>
-                  </div>
-                )}
-                <div>
-                  <p className="muted">Reported by</p>
-                  <strong>{item.owner?.name || "Community member"}</strong>
-                </div>
-              </div>
             </section>
           </article>
         )
