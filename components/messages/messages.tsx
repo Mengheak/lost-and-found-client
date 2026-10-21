@@ -138,7 +138,7 @@ function Inbox({ userId }: { userId: string }) {
                   return (
                     <li key={conversation.id}>
                       <Link className={styles.conversation} href={`/messages/${conversation.id}`}>
-                        <Avatar name={other.name} decorative />
+                        <Avatar name={other.name} src={other.profilePhotoUrl}  decorative />
                         <div className={styles.preview}>
                           <div className={styles.previewHeading}>
                             <h2>{other.name}</h2>
@@ -247,7 +247,7 @@ function ConversationView({ id, userId }: { id: string; userId: string }) {
         <div className={styles.thread}>
           <div className={styles.threadHeader}>
             <div className={styles.person}>
-              <Avatar name={other?.name || "Community member"} decorative />
+              <Avatar name={other?.name || "Community member"} src={other?.profilePhotoUrl} decorative />
               <div>
                 <h1>{other?.name}</h1>
                 <p className="muted">Private conversation</p>
