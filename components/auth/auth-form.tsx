@@ -70,11 +70,19 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         <div className="auth-divider">or continue with email</div>
         <form className="section-stack" onSubmit={submit}>
           {register && (
-            <Input label="Full name" name="name" autoComplete="name" required maxLength={255} />
+            <Input
+              label="Full name"
+              name="name"
+              placeholder="Enter your full name"
+              autoComplete="name"
+              required
+              maxLength={255}
+            />
           )}
           <Input
             label="Email address"
             name="email"
+            placeholder="you@example.com"
             type="email"
             autoComplete="email"
             required
@@ -84,6 +92,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             <Input
               label="Phone number (optional)"
               name="phone"
+              placeholder="Enter your phone number"
               type="tel"
               autoComplete="tel"
               maxLength={50}
@@ -93,6 +102,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             <Input
               label="Password"
               name="password"
+              placeholder={register ? "Create a password" : "Enter your password"}
               type={visible ? "text" : "password"}
               autoComplete={register ? "new-password" : "current-password"}
               required
@@ -104,19 +114,21 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               size="sm"
               onClick={() => setVisible(!visible)}
               aria-pressed={visible}
-              iconLabel={visible ? "Hide password" : "Show password"}
+              aria-label={visible ? "Hide password" : "Show password"}
             >
               {visible ? (
                 <EyeOff size={18} aria-hidden="true" />
               ) : (
                 <Eye size={18} aria-hidden="true" />
               )}
+              {visible ? "Hide password" : "Show password"}
             </Button>
           </div>
           {register && (
             <Input
               label="Confirm password"
               name="confirmPassword"
+              placeholder="Re-enter your password"
               type={visible ? "text" : "password"}
               autoComplete="new-password"
               required
@@ -131,13 +143,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             type="submit"
             disabled={googleBusy}
             loading={loginState.isLoading || registerState.isLoading}
-            iconLabel={register ? "Create account" : "Sign in"}
+            aria-label={register ? "Create account" : "Sign in"}
           >
             {register ? (
               <UserPlus size={18} aria-hidden="true" />
             ) : (
               <LogIn size={18} aria-hidden="true" />
             )}
+            {register ? "Create account" : "Sign in"}
           </Button>
         </form>
         <p className="muted">
