@@ -21,6 +21,7 @@ export function Avatar({ src, name, size = "sm", decorative = false }: AvatarPro
       {showPhoto ? (
         // Google and signed storage URLs are loaded directly, without an image proxy cache.
         <Image
+          unoptimized
           src={photo.toString()}
           alt={decorative ? "" : `${name}'s profile photo`}
           width={size === "lg" ? 96 : 32}
