@@ -42,12 +42,13 @@ export function AuthNavigation() {
     </>
   ) : (
     <Link
-      className="ui-button ui-button--primary icon-action no-underline"
+      className="ui-button ui-button--primary no-underline"
       href="/login"
       aria-label="Sign in"
       title="Sign in"
     >
       <LogIn size={18} aria-hidden="true" />
+      Sign In
     </Link>
   );
 }
