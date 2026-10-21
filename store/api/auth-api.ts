@@ -16,6 +16,22 @@ export const authApi = createApi({
   baseQuery: lockedQuery,
   tagTypes: ["Session", "Reports", "Conversations", "Messages"],
   endpoints: (builder) => ({
+    updateProfile: builder.mutation<{ user: AuthUser }, FormData>({
+      query: (body) => ({ url: "update-profile", method: "POST", body, timeout: 75000 }),
+      invalidatesTags: ["Session", "Reports", "Conversations"],
+      async onQueryStarted(_body, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(
+            authApi.util.updateQueryData("session", undefined, (draft) => {
+              draft.user = data.user;
+            }),
+          );
+        } catch {
+          /* Keep the current profile if saving fails. */
+        }
+      },
+    }),
     myItems: builder.query<
       import("@/lib/items").Page<import("@/lib/items").Item>,
       { page: number; userId: string }
@@ -77,6 +93,7 @@ export const authApi = createApi({
   }),
 });
 export const {
+  useUpdateProfileMutation,
   useMyItemsQuery,
   useEditItemMutation,
   useItemStatusMutation,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AuthUser } from "@/lib/auth";
 import { validateReport, validatePhotos } from "@/lib/report-item";
+import { validateProfile } from "@/lib/profile";
 import { validPassword } from "@/lib/auth";
 
 const ACCESS = "lf_access";
@@ -66,12 +67,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     request.headers.get("origin") !== request.nextUrl.origin ||
     !request.headers
       .get("content-type")
-      ?.startsWith(reporting ? "multipart/form-data;" : "application/json")
+      ?.startsWith(
+        reporting || action === "update-profile" ? "multipart/form-data;" : "application/json",
+      )
   ) {
     return response({ message: "Request not permitted" }, 403);
   }
   if (
     ![
+      "update-profile",
       "login",
       "register",
       "session",
@@ -284,6 +288,79 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         return finish(
           response(
             { message: "Could not confirm the request. Refresh before retrying." },
+            error instanceof SyntaxError ? 400 : 503,
+          ),
+        );
+      }
+    }
+    if (action === "update-profile") {
+      const finish = (result: NextResponse) => (tokens ? setSession(result, tokens) : result);
+      try {
+        if (Number(request.headers.get("content-length")) > 6 * 1024 * 1024)
+          return finish(response({ message: "Photo must be no larger than 5 MB." }, 413));
+        const form = await request.formData();
+        const part = form.get("profile");
+        if (!part) return finish(response({ message: "Missing profile details." }, 400));
+        const profile = JSON.parse(typeof part === "string" ? part : await part.text());
+        const invalid = validateProfile(profile);
+        if (invalid) return finish(response({ message: invalid }, 400));
+        const avatars = form.getAll("avatar");
+        if (avatars.length > 1 || avatars.some((file) => typeof file === "string"))
+          return finish(response({ message: "Choose one profile photo." }, 400));
+        const photoError = validatePhotos(avatars as File[]);
+        if (photoError || (profile.removePhoto && avatars.length))
+          return finish(
+            response({ message: photoError || "Choose either upload or remove photo." }, 400),
+          );
+        const payload = new FormData();
+        // Explicit allowlist: callers cannot update email, role, ID or arbitrary photo URLs.
+        payload.set(
+          "profile",
+          new Blob(
+            [
+              JSON.stringify({
+                name: profile.name.trim(),
+                phone: profile.phone.trim(),
+                ...(profile.removePhoto ? { profilePhotoUrl: "" } : {}),
+              }),
+            ],
+            { type: "application/json" },
+          ),
+        );
+        if (avatars[0]) payload.set("avatar", avatars[0]);
+        const upstream = await fetch(
+          new URL("/api/users/me", process.env.API_BASE_URL || "http://localhost:8080"),
+          {
+            method: "PUT",
+            headers: { Authorization: `Bearer ${access}` },
+            body: payload,
+            cache: "no-store",
+            signal: AbortSignal.timeout(60000),
+          },
+        );
+        if (!upstream.ok)
+          return finish(
+            response(
+              {
+                message:
+                  upstream.status === 413
+                    ? "Photo must be no larger than 5 MB."
+                    : "Could not update your profile. Please try again.",
+              },
+              upstream.status,
+            ),
+          );
+        const { data } = await upstream.json();
+        return finish(response({ user: publicUser(data) }));
+      } catch (error) {
+        return finish(
+          response(
+            {
+              message:
+                error instanceof SyntaxError
+                  ? "Invalid profile details."
+                  : "Could not confirm the update. Check your account before retrying.",
+            },
             error instanceof SyntaxError ? 400 : 503,
           ),
         );

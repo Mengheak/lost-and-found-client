@@ -271,12 +271,14 @@ export function ReportItemForm({
             <Input
               label="Brand"
               name="brand"
+              placeholder="e.g. Apple, Samsung or Nike"
               defaultValue={initialItem?.brand ?? ""}
               maxLength={100}
             />
             <Input
               label="Color"
               name="color"
+              placeholder="e.g. Black, blue or silver"
               defaultValue={initialItem?.color ?? ""}
               maxLength={50}
             />
@@ -355,7 +357,7 @@ export function ReportItemForm({
                   })()
                 : ""
             }
-            hint="Use your local date and time."
+            hint="Select a date and time using the picker. Use your local date and time."
           />
           {initialItem && (
             <p className="muted">
@@ -377,6 +379,7 @@ export function ReportItemForm({
           <div className="report-grid">
             <Input
               label="Latitude"
+              placeholder="e.g. 11.5564"
               type="number"
               min={-90}
               max={90}
@@ -386,6 +389,7 @@ export function ReportItemForm({
             />
             <Input
               label="Longitude"
+              placeholder="e.g. 104.9282"
               type="number"
               min={-180}
               max={180}
@@ -398,6 +402,7 @@ export function ReportItemForm({
             <Input
               label="Reward amount (optional)"
               name="rewardAmount"
+              placeholder="e.g. 25.00"
               defaultValue={initialItem?.rewardAmount ?? ""}
               type="number"
               min={0}

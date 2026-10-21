@@ -3,8 +3,8 @@ import type { ItemStatus } from "@/lib/items";
 export interface Conversation {
   id: string;
   item: { id: string; name: string; type: "LOST" | "FOUND"; status: ItemStatus };
-  userA: { id: string; name: string };
-  userB: { id: string; name: string };
+  userA: { id: string; name: string; profilePhotoUrl: string | null; ratingAvg: number };
+  userB: { id: string; name: string; profilePhotoUrl: string | null; ratingAvg: number};
   createdAt: string;
 }
 
@@ -12,6 +12,7 @@ export interface Message {
   id: string;
   conversationId: string;
   senderId: string;
+  senderProfilePhotoUrl: string | null;
   text: string | null;
   imageUrl: string | null;
   createdAt: string;
