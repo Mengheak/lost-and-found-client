@@ -92,3 +92,17 @@ Signed-in users can open `/my-reports` from the header to page through their own
 The editor keeps current photos by default. Users can replace the entire photo set or remove all photos. Temporary signed image URLs are never sent back as permanent photo references. The backend treats null values as unchanged, so blank date, coordinates, and reward fields retain existing values; a reward of zero removes the reward amount. Text fields can be cleared. Item type cannot be changed.
 
 Contract tests cover authenticated pagination, ownership rejection, photo preservation/replacement, and refresh-cookie retention when an update fails. These tests mock the backend; authenticated editing against live accounts still needs acceptance testing.
+
+## Chat photo uploads
+
+Conversations support one JPEG or PNG photo per message, with an optional caption. Choose a photo in the composer to preview it, remove it, or send it. The frontend checks the 5 MB limit; the backend also checks image contents and a maximum of 20 million pixels. Failed sends retain the caption and selected photo and are never retried automatically. Refresh history to check an uncertain result before sending again.
+
+Uploads use the authenticated same-origin `send-image` action, which forwards only the image and caption to `POST /api/conversations/{id}/messages/image`. App tokens stay in server-managed cookies. Attached images appear inline and open at full size in a new tab. Message polling and manual refresh obtain fresh signed MinIO URLs. Contract tests cover upload validation, participant errors, session refresh, and uncertain uploads; live uploads against a real account still need acceptance testing.
+
+## Search by photo
+
+Click the **Search by image** icon inside the search field on `/` or `/items` to open the image search dialog. Drop or choose one JPG, PNG or WebP photo (up to 5 MB and 20 million pixels), review the preview, optionally choose a category, and select **Find similar items**. Results show up to 20 open found reports in visual similarity order inside the dialog. Change or remove the photo, cancel a search, or retry a failure. Close with Escape, the close button, or the backdrop to return to browsing. The existing keyword search is unchanged; there is no separate text/image mode selector.
+
+The public same-origin `POST /api/catalog/search/photo` forwards multipart `file`, `categoryId`, and a fixed `limit=20` to the existing backend `/api/items/search/photo`. It uses `API_BASE_URL`, requires no login, forwards no credentials, and does not cache responses. The backend and its photo embedding AI service must be running, and report photos must be indexed. Query photos are processed by the backend without adding them to report storage. Similarity does not establish ownership.
+
+`npm test` covers the photo upload contract, validation, category forwarding, result order, empty results, and service failures. Lint and type checking pass. Live matching and browser acceptance remain unverified; the production build encounters the existing Windows Turbopack CSS-worker startup failure.
