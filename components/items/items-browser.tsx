@@ -9,6 +9,7 @@ import {
   PackageSearch,
   SlidersHorizontal,
   ChevronDown,
+  ScanLine,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useGetCategoriesQuery, useGetItemsQuery } from "@/store/api/items-api";
@@ -23,13 +24,14 @@ import {
 import { ITEM_TYPES, ITEM_TYPE_LABELS } from "@/lib/constants";
 import { STATUS_LABELS, type ItemStatus } from "@/lib/items";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ItemCard } from "./item-card";
+import { PhotoSearch } from "./photo-search";
 
 export function ItemsBrowser({ sidebar = false }: { sidebar?: boolean }) {
   const dispatch = useAppDispatch();
   const filters = useAppSelector((state) => state.filters);
   const [query, setDraftQuery] = useState(filters.query);
+  const [photoSearchOpen, setPhotoSearchOpen] = useState(false);
   const {
     currentData: data,
     isFetching,
@@ -62,6 +64,7 @@ export function ItemsBrowser({ sidebar = false }: { sidebar?: boolean }) {
         </header>
       )}
 
+      {photoSearchOpen && <PhotoSearch onClose={() => setPhotoSearchOpen(false)} />}
       <div className={`browse-layout${sidebar ? " browse-layout--sidebar" : ""}`}>
         {sidebar ? (
           <section
@@ -80,6 +83,14 @@ export function ItemsBrowser({ sidebar = false }: { sidebar?: boolean }) {
                 onChange={(e) => setDraftQuery(e.target.value)}
                 maxLength={200}
               />
+              <Button
+                variant="ghost"
+                iconLabel="Search by image"
+                aria-haspopup="dialog"
+                onClick={() => setPhotoSearchOpen(true)}
+              >
+                <ScanLine size={20} aria-hidden="true" />
+              </Button>
               <Button type="submit" variant="ghost" iconLabel="Search items">
                 <Search size={19} aria-hidden="true" />
               </Button>
@@ -161,13 +172,27 @@ export function ItemsBrowser({ sidebar = false }: { sidebar?: boolean }) {
         ) : (
           <section className="browse-controls" aria-label="Search and filter items">
             <form onSubmit={search} className="search-form">
-              <Input
-                label="Search items"
-                placeholder="What are you looking for?"
-                value={query}
-                onChange={(e) => setDraftQuery(e.target.value)}
-                maxLength={200}
-              />
+              <div className="field">
+                <label htmlFor="home-item-search">Search items</label>
+                <div className="compact-search">
+                  <input
+                    id="home-item-search"
+                    type="search"
+                    placeholder="What are you looking for?"
+                    value={query}
+                    onChange={(e) => setDraftQuery(e.target.value)}
+                    maxLength={200}
+                  />
+                  <Button
+                    variant="ghost"
+                    iconLabel="Search by image"
+                    aria-haspopup="dialog"
+                    onClick={() => setPhotoSearchOpen(true)}
+                  >
+                    <ScanLine size={20} aria-hidden="true" />
+                  </Button>
+                </div>
+              </div>
               <Button type="submit">
                 <Search size={18} aria-hidden="true" />
                 Search
