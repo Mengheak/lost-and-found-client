@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { AuthUser } from "@/lib/auth";
 import { validateReport, validatePhotos } from "@/lib/report-item";
 import { validateProfile } from "@/lib/profile";
+import { validateChatImage } from "@/lib/chat";
 import { validPassword } from "@/lib/auth";
 
 const ACCESS = "lf_access";
@@ -68,7 +69,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     !request.headers
       .get("content-type")
       ?.startsWith(
-        reporting || action === "update-profile" ? "multipart/form-data;" : "application/json",
+        reporting || action === "update-profile" || action === "send-image"
+          ? "multipart/form-data;"
+          : "application/json",
       )
   ) {
     return response({ message: "Request not permitted" }, 403);
@@ -92,6 +95,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       "start-conversation",
       "messages",
       "send-message",
+      "send-image",
     ].includes(action)
   )
     return response({ message: "Not found" }, 404);
@@ -239,6 +243,53 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     if (!tokens && (!profile || [401, 403].includes(profile.status)))
       return clearSession(response({ user: null }, 401));
     if (!tokens && !profile?.ok) return response({ message: "Session service unavailable" }, 503);
+    if (action === "send-image") {
+      const finish = (result: NextResponse) => (tokens ? setSession(result, tokens) : result);
+      try {
+        if (Number(request.headers.get("content-length")) > 6 * 1024 * 1024)
+          return finish(response({ message: "Photo must be no larger than 5 MB." }, 413));
+        const form = await request.formData();
+        const id = form.get("id");
+        if (
+          typeof id !== "string" ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+        )
+          return finish(response({ message: "Invalid conversation ID." }, 400));
+        const text = form.get("text") ?? "";
+        if (typeof text !== "string" || text.length > 10000)
+          return finish(
+            response({ message: "Caption must be no longer than 10,000 characters." }, 400),
+          );
+        const images = form.getAll("image");
+        if (images.length !== 1 || typeof images[0] === "string")
+          return finish(response({ message: "Choose one photo." }, 400));
+        const invalid = validateChatImage(images[0]);
+        if (invalid) return finish(response({ message: invalid }, 400));
+        const payload = new FormData();
+        payload.set("image", images[0]);
+        if (text.trim()) payload.set("text", text.trim());
+        const upstream = await fetch(
+          new URL(
+            `/api/conversations/${id}/messages/image`,
+            process.env.API_BASE_URL || "http://localhost:8080",
+          ),
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${access}` },
+            body: payload,
+            cache: "no-store",
+            signal: AbortSignal.timeout(60000),
+          },
+        );
+        if (!upstream.ok)
+          return finish(response({ message: "Could not send this photo." }, upstream.status));
+        return finish(response(await upstream.json(), upstream.status));
+      } catch {
+        return finish(
+          response({ message: "Could not confirm the upload. Refresh before retrying." }, 503),
+        );
+      }
+    }
     if (
       ["conversations", "conversation", "start-conversation", "messages", "send-message"].includes(
         action,

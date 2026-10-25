@@ -10,6 +10,7 @@ import {
   MessageCircle,
   RefreshCw,
   Send,
+  X,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useSessionQuery } from "@/store/api/auth-api";
@@ -18,10 +19,11 @@ import {
   useConversationQuery,
   useMessagesQuery,
   useSendMessageMutation,
+  useSendImageMutation,
 } from "@/store/api/chat-api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { chatError } from "@/lib/chat";
+import { chatError, validateChatImage } from "@/lib/chat";
 import { STATUS_LABELS } from "@/lib/items";
 import styles from "./messages.module.css";
 
@@ -138,7 +140,7 @@ function Inbox({ userId }: { userId: string }) {
                   return (
                     <li key={conversation.id}>
                       <Link className={styles.conversation} href={`/messages/${conversation.id}`}>
-                        <Avatar name={other.name} src={other.profilePhotoUrl}  decorative />
+                        <Avatar name={other.name} src={other.profilePhotoUrl} decorative />
                         <div className={styles.preview}>
                           <div className={styles.previewHeading}>
                             <h2>{other.name}</h2>
@@ -179,12 +181,44 @@ function Inbox({ userId }: { userId: string }) {
   );
 }
 
+function ChatPhoto({ file }: { file: File }) {
+  const preview = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    if (preview.current) preview.current.src = url;
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img ref={preview} className={styles.attachmentImage} alt="Selected photo preview" />;
+}
+
+function MessagePhoto({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  return failed ? (
+    <p className="muted">Photo unavailable. Refresh messages to renew its link.</p>
+  ) : (
+    <a href={url} target="_blank" rel="noopener noreferrer" aria-label="Open attached photo">
+      {/* Signed private images load directly without an image proxy cache. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className={styles.attachmentImage}
+        src={url}
+        alt="Photo attached to message"
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    </a>
+  );
+}
+
 function ConversationView({ id, userId }: { id: string; userId: string }) {
   const valid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
   const [page, setPage] = useState(0);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const previousPage = useRef<number | null>(null);
   const conversation = useConversationQuery({ id, userId }, { skip: !valid });
@@ -197,15 +231,30 @@ function ConversationView({ id, userId }: { id: string; userId: string }) {
       skipPollingIfUnfocused: true,
     },
   );
-  const [send, { isLoading }] = useSendMessageMutation();
+  const [send, sending] = useSendMessageMutation();
+  const [sendImage, uploading] = useSendImageMutation();
+  const isLoading = sending.isLoading || uploading.isLoading;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!text.trim() || isLoading) return;
+    if ((!text.trim() && !photo) || isLoading) return;
     setError("");
     setSent(false);
     try {
-      await send({ id, text }).unwrap();
+      if (photo) {
+        const invalid = validateChatImage(photo);
+        if (invalid) {
+          setError(invalid);
+          return;
+        }
+        const body = new FormData();
+        body.set("id", id);
+        body.set("image", photo);
+        if (text.trim()) body.set("text", text.trim());
+        await sendImage({ id, body }).unwrap();
+      } else await send({ id, text }).unwrap();
+      setPhoto(null);
+      if (picker.current) picker.current.value = "";
       setText("");
       setPage(0);
       setSent(true);
@@ -247,7 +296,11 @@ function ConversationView({ id, userId }: { id: string; userId: string }) {
         <div className={styles.thread}>
           <div className={styles.threadHeader}>
             <div className={styles.person}>
-              <Avatar name={other?.name || "Community member"} src={other?.profilePhotoUrl} decorative />
+              <Avatar
+                name={other?.name || "Community member"}
+                src={other?.profilePhotoUrl}
+                decorative
+              />
               <div>
                 <h1>{other?.name}</h1>
                 <p className="muted">Private conversation</p>
@@ -299,9 +352,7 @@ function ConversationView({ id, userId }: { id: string; userId: string }) {
                           <strong>{message.senderId === userId ? "You" : other?.name}</strong>
                           {message.text && <p>{message.text}</p>}
                           {message.imageUrl && /^https?:\/\//i.test(message.imageUrl) && (
-                            <a href={message.imageUrl} target="_blank" rel="noopener noreferrer">
-                              View attached image
-                            </a>
+                            <MessagePhoto key={message.imageUrl} url={message.imageUrl} />
                           )}
                           <time dateTime={message.createdAt}>
                             {new Intl.DateTimeFormat("en", {
@@ -336,7 +387,7 @@ function ConversationView({ id, userId }: { id: string; userId: string }) {
                 className="ui-input"
                 rows={2}
                 maxLength={10000}
-                required
+                required={!photo}
                 value={text}
                 disabled={isLoading}
                 onChange={(event) => {
@@ -346,6 +397,52 @@ function ConversationView({ id, userId }: { id: string; userId: string }) {
                 placeholder="Write a message…"
               />
             </div>
+            <div className="field">
+              <label htmlFor="message-photo">Attach a photo (optional)</label>
+              <input
+                ref={picker}
+                id="message-photo"
+                type="file"
+                className="ui-input"
+                accept="image/jpeg,image/png"
+                disabled={isLoading}
+                aria-describedby="message-photo-hint"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  const invalid = validateChatImage(file);
+                  if (invalid) {
+                    setError(invalid);
+                    event.target.value = "";
+                    return;
+                  }
+                  setPhoto(file);
+                  setError("");
+                  setSent(false);
+                }}
+              />
+              <p id="message-photo-hint" className="field-message">
+                One JPG or PNG photo, up to 5 MB. A caption is optional.
+              </p>
+            </div>
+            {photo && (
+              <div className={styles.attachmentPreview}>
+                <ChatPhoto file={photo} />
+                <span>{photo.name}</span>
+                <Button
+                  variant="secondary"
+                  disabled={isLoading}
+                  onClick={() => {
+                    setPhoto(null);
+                    if (picker.current) picker.current.value = "";
+                    setSent(false);
+                  }}
+                >
+                  <X size={16} aria-hidden="true" /> Remove photo
+                </Button>
+              </div>
+            )}
+            {uploading.isLoading && <p role="status">Uploading photo…</p>}
             {error && (
               <p role="alert" className="field-error">
                 {error}
@@ -359,7 +456,7 @@ function ConversationView({ id, userId }: { id: string; userId: string }) {
               <Button
                 type="submit"
                 loading={isLoading}
-                disabled={!text.trim() || history.isError || !history.currentData}
+                disabled={(!text.trim() && !photo) || history.isError || !history.currentData}
               >
                 <Send size={16} aria-hidden="true" /> Send
               </Button>

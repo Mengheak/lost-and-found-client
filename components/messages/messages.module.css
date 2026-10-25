@@ -259,3 +259,19 @@
     max-width: 11rem;
   }
 }
+
+.attachmentImage {
+  display: block;
+  max-width: 100%;
+  width: 18rem;
+  max-height: 18rem;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+}
+.attachmentPreview {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}

@@ -676,3 +676,97 @@ test("profile failures retain rotated cookies and never retry a save automatical
   assert.equal(result.cookies.get("lf_refresh").value, tokens.refreshToken);
   assert.equal(calls.length, 2);
 });
+function imageRequest({
+  id = report.categoryId,
+  text = "",
+  images = [new File(["image"], "photo.png", { type: "image/png" })],
+  cookie = "lf_access=valid",
+  origin = "http://localhost:3000",
+} = {}) {
+  const body = new FormData();
+  body.set("id", id);
+  body.set("text", text);
+  body.set("senderId", "forged-sender");
+  images.forEach((image) => body.append("image", image));
+  return POST(
+    new NextRequest("http://localhost:3000/api/auth/send-image", {
+      method: "POST",
+      headers: { origin, cookie },
+      body,
+    }),
+    { params: Promise.resolve({ action: "send-image" }) },
+  );
+}
+
+test("chat photos require authentication and same origin", async (t) => {
+  const calls = backend(t, []);
+  assert.equal((await imageRequest({ cookie: "" })).status, 401);
+  assert.equal((await imageRequest({ origin: "https://other.invalid" })).status, 403);
+  assert.equal(calls.length, 0);
+});
+
+test("chat photo upload forwards one file and optional caption without forged fields", async (t) => {
+  const calls = backend(t, [
+    { body: { data: user } },
+    {
+      status: 201,
+      body: { data: { id: "photo-message", imageUrl: "https://example.invalid/photo" } },
+    },
+    { body: { data: user } },
+    { status: 201, body: { data: { id: "photo-only" } } },
+  ]);
+  const result = await imageRequest({ text: "  Found this  " });
+  assert.equal(result.status, 201);
+  assert.equal((await result.json()).data.id, "photo-message");
+  assert.equal(calls[1].path, `/api/conversations/${report.categoryId}/messages/image`);
+  assert.equal(calls[1].options.method, "POST");
+  assert.deepEqual(calls[1].options.headers, { Authorization: "Bearer valid" });
+  const payload = calls[1].options.body;
+  assert.deepEqual([...payload.keys()].sort(), ["image", "text"]);
+  assert.equal(payload.get("text"), "Found this");
+  assert.equal(payload.get("image").name, "photo.png");
+  assert.equal(await payload.get("image").text(), "image");
+  assert.equal((await imageRequest()).status, 201);
+  assert.equal(calls[3].options.body.has("text"), false);
+});
+
+test("chat photos reject invalid IDs, files and oversized captions before upload", async (t) => {
+  const cases = [
+    { id: "bad" },
+    { images: [] },
+    {
+      images: [
+        new File(["a"], "a.png", { type: "image/png" }),
+        new File(["b"], "b.png", { type: "image/png" }),
+      ],
+    },
+    { images: [new File(["a"], "a.webp", { type: "image/webp" })] },
+    { images: [new File([], "a.png", { type: "image/png" })] },
+    { images: [new File([new Uint8Array(5 * 1024 * 1024 + 1)], "a.png", { type: "image/png" })] },
+    { text: "a".repeat(10001) },
+  ];
+  const calls = backend(
+    t,
+    cases.map(() => ({ body: { data: user } })),
+  );
+  for (const values of cases) assert.equal((await imageRequest(values)).status, 400);
+  assert.equal(calls.length, cases.length);
+  assert.ok(calls.every((call) => call.path === "/api/users/me"));
+});
+
+test("failed chat photo upload keeps refreshed cookies and does not retry", async (t) => {
+  const calls = backend(t, [{ status: 401 }, {}, new Error("uncertain upload")]);
+  const result = await imageRequest({ cookie: "lf_access=expired; lf_refresh=valid" });
+  assert.equal(result.status, 503);
+  assert.equal(result.cookies.get("lf_refresh").value, tokens.refreshToken);
+  assert.equal(calls.length, 3);
+  assert.equal(calls[2].options.headers.Authorization, `Bearer ${tokens.accessToken}`);
+});
+
+test("chat photo upload preserves backend participant and image validation errors", async (t) => {
+  backend(
+    t,
+    [403, 404, 400, 413].flatMap((status) => [{ body: { data: user } }, { status }]),
+  );
+  for (const status of [403, 404, 400, 413]) assert.equal((await imageRequest()).status, status);
+});

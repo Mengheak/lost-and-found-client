@@ -28,6 +28,11 @@ const chatApi = authApi.injectEndpoints({
       transformResponse: (result: ApiResponse<Conversation>) => result.data,
       invalidatesTags: ["Conversations"],
     }),
+    sendImage: builder.mutation<Message, { id: string; body: FormData }>({
+      query: ({ body }) => ({ url: "send-image", method: "POST", body, timeout: 75000 }),
+      transformResponse: (result: ApiResponse<Message>) => result.data,
+      invalidatesTags: (_result, _error, { id }) => [{ type: "Messages", id }],
+    }),
     sendMessage: builder.mutation<Message, { id: string; text: string }>({
       query: (body) => ({ url: "send-message", method: "POST", body }),
       transformResponse: (result: ApiResponse<Message>) => result.data,
@@ -42,4 +47,5 @@ export const {
   useMessagesQuery,
   useStartConversationMutation,
   useSendMessageMutation,
+  useSendImageMutation,
 } = chatApi;
