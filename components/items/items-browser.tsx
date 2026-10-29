@@ -20,12 +20,14 @@ import {
   setQuery,
   setStatus,
   setType,
+  setAdvancedFilters,
 } from "@/store/slices/filters-slice";
 import { ITEM_TYPES, ITEM_TYPE_LABELS } from "@/lib/constants";
 import { STATUS_LABELS, type ItemStatus } from "@/lib/items";
 import { Button } from "@/components/ui/button";
 import { ItemCard } from "./item-card";
 import { PhotoSearch } from "./photo-search";
+import Link from "next/link";
 
 export function ItemsBrowser({ sidebar = false }: { sidebar?: boolean }) {
   const dispatch = useAppDispatch();
@@ -40,6 +42,10 @@ export function ItemsBrowser({ sidebar = false }: { sidebar?: boolean }) {
   } = useGetItemsQuery(filters, { pollingInterval: 300000 });
   const categories = useGetCategoriesQuery();
   const filtered = !!(
+    filters.brand ||
+    filters.color ||
+    filters.dateFrom ||
+    filters.dateTo ||
     filters.query ||
     filters.categoryId ||
     filters.status ||
@@ -65,6 +71,10 @@ export function ItemsBrowser({ sidebar = false }: { sidebar?: boolean }) {
       )}
 
       {photoSearchOpen && <PhotoSearch onClose={() => setPhotoSearchOpen(false)} />}
+      <Link href="/items/search" className="nav-link">
+        Try smart search — describe what you lost
+      </Link>
+      <AdvancedFilters />
       <div className={`browse-layout${sidebar ? " browse-layout--sidebar" : ""}`}>
         {sidebar ? (
           <section
@@ -348,4 +358,99 @@ export function ItemsBrowser({ sidebar = false }: { sidebar?: boolean }) {
       </div>
     </div>
   );
+}
+
+function AdvancedFilters() {
+  const filters = useAppSelector((state) => state.filters);
+  const dispatch = useAppDispatch();
+  const [error, setError] = useState("");
+  return (
+    <details className="search-tools">
+      <summary>Filter by brand, color, or date</summary>
+      <form
+        key={`${filters.brand}-${filters.color}-${filters.dateFrom}-${filters.dateTo}`}
+        className="section-stack feature-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const data = new FormData(e.currentTarget);
+          const dateFrom = String(data.get("dateFrom") || "");
+          const dateTo = String(data.get("dateTo") || "");
+          if (dateFrom && dateTo && dateFrom > dateTo) {
+            setError("The end date must be after the start date.");
+            return;
+          }
+          setError("");
+          dispatch(
+            setAdvancedFilters({
+              brand: String(data.get("brand") || "").trim(),
+              color: String(data.get("color") || "").trim(),
+              dateFrom: dateFrom ? new Date(dateFrom).toISOString() : "",
+              dateTo: dateTo ? new Date(dateTo).toISOString() : "",
+            }),
+          );
+        }}
+      >
+        <div className="field">
+          <label htmlFor="filter-brand">Brand</label>
+          <input
+            id="filter-brand"
+            name="brand"
+            className="ui-input"
+            maxLength={100}
+            defaultValue={filters.brand || ""}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="filter-color">Color</label>
+          <input
+            id="filter-color"
+            name="color"
+            className="ui-input"
+            maxLength={100}
+            defaultValue={filters.color || ""}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="filter-date-from">From date and time</label>
+          <input
+            id="filter-date-from"
+            name="dateFrom"
+            type="datetime-local"
+            className="ui-input"
+            defaultValue={localDate(filters.dateFrom)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="filter-date-to">To date and time</label>
+          <input
+            id="filter-date-to"
+            name="dateTo"
+            type="datetime-local"
+            className="ui-input"
+            defaultValue={localDate(filters.dateTo)}
+          />
+        </div>
+        {error && <p role="alert">{error}</p>}
+        <div className="row">
+          <Button type="submit" variant="secondary">
+            Apply filters
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setError("");
+              dispatch(setAdvancedFilters({ brand: "", color: "", dateFrom: "", dateTo: "" }));
+            }}
+          >
+            Clear these filters
+          </Button>
+        </div>
+      </form>
+    </details>
+  );
+}
+function localDate(value?: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
