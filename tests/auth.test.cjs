@@ -39,6 +39,253 @@ const tokens = {
   expiresInSeconds: 900,
   user,
 };
+const featureId = "12345678-1234-1234-1234-123456789abc";
+
+test("public profile proxy allowlists paths and forwards advanced filters without private cookies", async (t) => {
+  const { GET } = loadTs("app/api/catalog/[...path]/route.ts");
+  const calls = [];
+  t.mock.method(global, "fetch", async (url, options) => {
+    calls.push({ url: new URL(url), options });
+    return Response.json({ data: [] });
+  });
+  for (const parts of [["users", featureId], ["ratings", "user", featureId], ["items"]]) {
+    const result = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/catalog/test?brand=Apple&color=blue&dateFrom=2026-01-01T00:00:00Z",
+        { headers: { cookie: "lf_access=secret" } },
+      ),
+      { params: Promise.resolve({ path: parts }) },
+    );
+    assert.equal(result.status, 200);
+  }
+  assert.equal(calls[2].url.searchParams.get("brand"), "Apple");
+  assert.equal(calls[2].url.searchParams.get("dateFrom"), "2026-01-01T00:00:00Z");
+  assert.equal(calls[0].options.headers.Authorization, undefined);
+  for (const parts of [
+    ["users", "me"],
+    ["admin", "users"],
+    ["items", "my"],
+    ["users", ".."],
+  ]) {
+    assert.equal(
+      (
+        await GET(new NextRequest("http://localhost:3000/api/catalog/test"), {
+          params: Promise.resolve({ path: parts }),
+        })
+      ).status,
+      404,
+    );
+  }
+  assert.equal(calls.length, 3);
+});
+
+test("semantic search validates descriptions and forwards only its public search contract", async (t) => {
+  const { POST: semantic } = loadTs("app/api/catalog/search/semantic/route.ts");
+  const calls = [];
+  const matches = [{ item: { id: featureId }, score: 0.7 }];
+  t.mock.method(global, "fetch", async (url, options) => {
+    calls.push({ url: new URL(url), options });
+    return Response.json({ data: { matches } });
+  });
+  const search = (body, origin = "http://localhost:3000") =>
+    semantic(
+      new NextRequest("http://localhost:3000/api/catalog/search/semantic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", origin, cookie: "lf_access=secret" },
+        body: JSON.stringify(body),
+      }),
+    );
+  assert.equal((await search({ query: "" })).status, 400);
+  assert.equal((await search({ query: "bag", minScore: 2 })).status, 400);
+  assert.equal((await search({ query: "bag", categoryId: "../users" })).status, 400);
+  assert.equal((await search({ query: "bag" }, "https://evil.invalid")).status, 403);
+  const result = await search({
+    query: " small blue bag ",
+    categoryId: featureId,
+    minScore: 0.2,
+    limit: 1000,
+    path: "/admin",
+  });
+  assert.equal(result.status, 200);
+  assert.deepEqual((await result.json()).data.matches, matches);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url.pathname, "/api/items/search/semantic");
+  assert.deepEqual(JSON.parse(calls[0].options.body), {
+    query: "small blue bag",
+    categoryId: featureId,
+    minScore: 0.2,
+    limit: 20,
+  });
+  assert.equal(calls[0].options.headers.Authorization, undefined);
+});
+
+test("saved items and notifications remain private and never accept browser-controlled upstream paths", async (t) => {
+  const calls = backend(t, [
+    { body: { data: user } },
+    { body: { data: { content: [], last: true } } },
+    { body: { data: user } },
+    { body: { data: null } },
+    { body: { data: user } },
+    { body: { data: null } },
+    { body: { data: user } },
+    { body: { data: null } },
+  ]);
+  assert.equal(
+    (await request("saved-items", { page: 2, path: "https://evil.invalid" }, "lf_access=valid"))
+      .status,
+    200,
+  );
+  assert.equal(
+    (await request("save-item", { id: featureId, userId: "forged" }, "lf_access=valid")).status,
+    200,
+  );
+  assert.equal((await request("unsave-item", { id: featureId }, "lf_access=valid")).status, 200);
+  assert.equal(
+    (await request("read-notification", { id: featureId }, "lf_access=valid")).status,
+    200,
+  );
+  assert.equal(calls[1].path, "/api/saved-items");
+  assert.equal(calls[1].options.method, "GET");
+  assert.equal(calls[3].path, `/api/saved-items/${featureId}`);
+  assert.equal(calls[3].options.headers.Authorization, "Bearer valid");
+  assert.equal(calls[3].options.body, undefined);
+  assert.equal(calls[5].options.method, "DELETE");
+  assert.equal(calls[7].path, `/api/notifications/${featureId}/read`);
+  assert.equal(calls[7].options.method, "PATCH");
+  assert.equal((await request("saved-items")).status, 401);
+  assert.equal(
+    (await request("read-all-notifications", {}, "lf_access=valid", "https://evil.invalid")).status,
+    403,
+  );
+});
+
+test("administrator operations reject normal users before making privileged requests", async (t) => {
+  const calls = backend(
+    t,
+    Array.from({ length: 4 }, () => ({ body: { data: user } })),
+  );
+  for (const action of ["admin-users", "admin-role", "admin-ban", "create-category"]) {
+    assert.equal(
+      (
+        await request(
+          action,
+          { id: featureId, role: "ADMIN", name: "Test", reason: "test" },
+          "lf_access=valid",
+        )
+      ).status,
+      403,
+    );
+  }
+  assert.ok(calls.every((c) => c.path === "/api/users/me"));
+});
+
+test("admin changes forward allowlisted fields and retain refreshed cookies on conflicts", async (t) => {
+  const admin = { ...user, role: "ADMIN" };
+  const calls = backend(t, [
+    { body: { data: admin } },
+    { body: { data: {} } },
+    { status: 401 },
+    { body: { data: { ...tokens, user: admin } } },
+    { status: 409 },
+  ]);
+  assert.equal(
+    (
+      await request(
+        "admin-ban",
+        { id: featureId, reason: "Review reason", role: "ADMIN", expiresAt: null, forged: true },
+        "lf_access=valid",
+      )
+    ).status,
+    200,
+  );
+  assert.equal(calls[1].path, `/api/admin/users/${featureId}/bans`);
+  assert.deepEqual(JSON.parse(calls[1].options.body), { reason: "Review reason", expiresAt: null });
+  const conflict = await request(
+    "delete-category",
+    { id: featureId },
+    "lf_access=expired; lf_refresh=valid",
+  );
+  assert.equal(conflict.status, 409);
+  assert.equal(conflict.cookies.get("lf_refresh").value, tokens.refreshToken);
+  assert.equal(calls[4].options.method, "DELETE");
+});
+
+test("rating validation prevents invalid scores and forwards no forged author", async (t) => {
+  const calls = backend(t, [{ body: { data: user } }, { body: { data: user } }, { status: 409 }]);
+  assert.equal(
+    (
+      await request(
+        "submit-rating",
+        { toUserId: featureId, itemId: featureId, score: 6 },
+        "lf_access=valid",
+      )
+    ).status,
+    400,
+  );
+  const result = await request(
+    "submit-rating",
+    { toUserId: featureId, itemId: featureId, score: 5, comment: "Helpful", fromUserId: featureId },
+    "lf_access=valid",
+  );
+  assert.equal(result.status, 409);
+  assert.deepEqual(JSON.parse(calls[2].options.body), {
+    toUserId: featureId,
+    itemId: featureId,
+    score: 5,
+    comment: "Helpful",
+  });
+});
+
+test("password recovery works anonymously, validates tokens, and clears revoked local sessions after reset", async (t) => {
+  const calls = backend(t, [{ body: { data: null } }, { body: { data: null } }]);
+  const forgot = await request("forgot-password", {
+    email: "unknown@example.invalid",
+    role: "ADMIN",
+  });
+  assert.equal(forgot.status, 200);
+  assert.match((await forgot.json()).message, /If an account exists/);
+  assert.equal(calls[0].path, "/api/auth/forgot-password");
+  assert.deepEqual(JSON.parse(calls[0].options.body), { email: "unknown@example.invalid" });
+  assert.equal(
+    (await request("reset-password", { token: "invalid", newPassword: "test-password" })).status,
+    400,
+  );
+  const reset = await request(
+    "reset-password",
+    { token: "a".repeat(43), newPassword: "test-password" },
+    "lf_access=old",
+  );
+  assert.equal(reset.status, 200);
+  assert.equal(reset.cookies.get("lf_access").value, "");
+  assert.equal(calls[1].path, "/api/auth/reset-password");
+  assert.equal(calls[1].options.headers.Authorization, undefined);
+});
+
+test("Google linking authenticates its start and accepts a tokenless completion only for a linking handshake", async (t) => {
+  const calls = backend(t, [
+    { body: { data: user } },
+    {
+      body: { data: { authorizationUrl: "/oauth2/authorization/google" } },
+      headers: { "set-cookie": "JSESSIONID=link-session; Path=/; HttpOnly" },
+    },
+    { body: { data: null } },
+  ]);
+  assert.equal((await request("google-link")).status, 401);
+  const started = await request("google-link", {}, "lf_access=valid");
+  assert.equal(started.status, 200);
+  assert.equal(started.cookies.get("lf_google_pending").value, "link");
+  assert.equal(calls[1].path, "/api/auth/google/link");
+  assert.equal(calls[1].options.headers.Authorization, "Bearer valid");
+  const complete = await request(
+    "google-complete",
+    {},
+    "lf_google_pending=link; JSESSIONID=link-session; lf_access=valid",
+  );
+  assert.equal(complete.status, 200);
+  assert.deepEqual(await complete.json(), { linked: true });
+  assert.equal(complete.cookies.get("lf_access"), undefined);
+  assert.equal(complete.cookies.get("lf_google_pending").value, "");
+});
 function request(action, body = {}, cookie = "", origin = "http://localhost:3000") {
   return POST(
     new NextRequest(`http://localhost:3000/api/auth/${action}`, {
@@ -356,6 +603,27 @@ test("status updates validate allowed actions and preserve backend ownership err
     (await request("item-status", { id, status: "INVALID" }, "lf_access=valid")).status,
     400,
   );
+});
+
+test("reports can be reopened and search indexes use owner-authenticated operations", async (t) => {
+  const calls = backend(t, [
+    { body: { data: user } },
+    { body: { data: {} } },
+    { body: { data: user } },
+    { status: 403 },
+    { body: { data: user } },
+    { body: { data: 2 } },
+  ]);
+  assert.equal(
+    (await request("item-status", { id: featureId, status: "OPEN" }, "lf_access=valid")).status,
+    200,
+  );
+  assert.deepEqual(JSON.parse(calls[1].options.body), { status: "OPEN" });
+  assert.equal((await request("index-text", { id: featureId }, "lf_access=valid")).status, 403);
+  assert.equal(calls[3].path, `/api/items/${featureId}/embedding`);
+  assert.equal((await request("index-photos", { id: featureId }, "lf_access=valid")).status, 200);
+  assert.equal(calls[5].path, `/api/items/${featureId}/image-embeddings`);
+  assert.equal(calls[5].options.headers.Authorization, "Bearer valid");
 });
 
 function editRequest(item, files = [], cookie = "lf_access=valid") {
