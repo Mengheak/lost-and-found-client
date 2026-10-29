@@ -1,74 +1,80 @@
 "use client";
 
 import Link from "next/link";
-import { LogIn, ClipboardList, MessageCircle, Bookmark, Shield } from "lucide-react";
+import { usePathname } from "next/navigation";
+import {
+  LogIn,
+  ClipboardList,
+  MessageCircle,
+  Bookmark,
+  Shield,
+  UserRound,
+  ChevronDown,
+} from "lucide-react";
 import { NotificationLink } from "@/components/community/notifications";
 import { useSessionQuery } from "@/store/api/auth-api";
 import { Avatar } from "@/components/ui/avatar";
 
 export function AuthNavigation() {
+  const pathname = usePathname();
   const { data, isLoading, isError } = useSessionQuery(undefined, { pollingInterval: 60000 });
   if (isLoading)
     return (
-      <span className="muted" role="status">
+      <span className="session-placeholder muted" role="status">
         Checking session…
       </span>
     );
-  return data?.user && !isError ? (
-    <>
-      <NotificationLink key={data.user.id} userId={data.user.id} />
-      <Link
-        className="nav-link icon-action"
-        href="/saved-items"
-        aria-label="Saved items"
-        title="Saved items"
-      >
-        <Bookmark size={18} aria-hidden="true" />
+  if (!data?.user || isError)
+    return (
+      <Link className="ui-button ui-button--primary no-underline" href="/login">
+        <LogIn size={18} aria-hidden="true" />
+        Sign in
       </Link>
-      {data.user.role === "ADMIN" && (
-        <Link
-          className="nav-link icon-action"
-          href="/admin"
-          aria-label="Administration"
-          title="Administration"
-        >
-          <Shield size={18} aria-hidden="true" />
-        </Link>
-      )}
+    );
+  const links = [
+    { href: "/account", label: "My account", icon: UserRound },
+    { href: "/my-reports", label: "My reports", icon: ClipboardList },
+    { href: "/saved-items", label: "Saved items", icon: Bookmark },
+    ...(data.user.role === "ADMIN"
+      ? [{ href: "/admin", label: "Administration", icon: Shield }]
+      : []),
+  ];
+  return (
+    <>
       <Link
-        className="nav-link icon-action"
+        className="nav-link header-action"
         href="/messages"
-        aria-label="Messages"
-        title="Messages"
+        aria-current={pathname.startsWith("/messages") ? "page" : undefined}
       >
         <MessageCircle size={18} aria-hidden="true" />
+        <span>Messages</span>
       </Link>
-      <Link
-        className="nav-link icon-action"
-        href="/my-reports"
-        aria-label="My reports"
-        title="My reports"
+      <NotificationLink key={data.user.id} userId={data.user.id} />
+      <details
+        className="account-menu"
+        key={pathname}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.currentTarget.open = false;
+            event.currentTarget.querySelector("summary")?.focus();
+          }
+        }}
       >
-        <ClipboardList size={18} aria-hidden="true" />
-      </Link>
-      <Link
-        className="nav-link icon-action"
-        href="/account"
-        aria-label="My account"
-        title="My account"
-      >
-        <Avatar src={data.user.profilePhotoUrl} name={data.user.name} decorative />
-      </Link>
+        <summary aria-label="Account navigation">
+          <Avatar src={data.user.profilePhotoUrl} name={data.user.name} decorative />
+          <span>Account</span>
+          <ChevronDown size={16} aria-hidden="true" />
+        </summary>
+        <div className="account-menu-panel">
+          <p className="account-menu-name">{data.user.name}</p>
+          {links.map(({ href, label, icon: Icon }) => (
+            <Link key={href} href={href} aria-current={pathname === href ? "page" : undefined}>
+              <Icon size={18} aria-hidden="true" />
+              {label}
+            </Link>
+          ))}
+        </div>
+      </details>
     </>
-  ) : (
-    <Link
-      className="ui-button ui-button--primary no-underline"
-      href="/login"
-      aria-label="Sign in"
-      title="Sign in"
-    >
-      <LogIn size={18} aria-hidden="true" />
-      Sign In
-    </Link>
   );
 }

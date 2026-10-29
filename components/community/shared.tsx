@@ -16,15 +16,25 @@ export function SessionGate({
   if (session.isLoading) return <p role="status">Checking your session…</p>;
   if (session.isError || !session.data?.user)
     return (
-      <div className="section-stack">
+      <div className="section-stack access-panel">
+        <h2>
+          {session.error && "status" in session.error && session.error.status === 401
+            ? "Your community, in one place"
+            : "Let’s reconnect"}
+        </h2>
         <p role="alert">
           {session.error && "status" in session.error && session.error.status === 401
             ? "Please sign in to continue."
             : "Could not verify your session. Please retry or sign in."}
         </p>
         <div className="row">
-          <Button onClick={() => session.refetch()}>Retry</Button>
-          <Link href="/login">Sign in</Link>
+          <Link className="ui-button ui-button--primary" href="/login">
+            Sign in
+          </Link>
+          <Button variant="secondary" onClick={() => session.refetch()}>
+            Check again
+          </Button>
+          <Link href="/items">Browse public reports</Link>
         </div>
       </div>
     );
@@ -45,7 +55,7 @@ export function Pagination({
   onChange: (page: number) => void;
 }) {
   return (
-    <nav className="row" aria-label="Pages">
+    <nav className="row feature-pagination" aria-label="Pages">
       <Button variant="secondary" disabled={page === 0 || busy} onClick={() => onChange(page - 1)}>
         Previous
       </Button>
@@ -58,7 +68,7 @@ export function Pagination({
 }
 export function LoadError({ retry }: { retry: () => void }) {
   return (
-    <div className="section-stack" role="alert">
+    <div className="section-stack access-panel" role="alert">
       <p>Unable to load this information. Please retry.</p>
       <Button onClick={retry}>Retry</Button>
     </div>

@@ -116,39 +116,45 @@ export function RatingForm({
     }
   }
   return (
-    <section className="section-stack">
-      <h2>Review your experience with {name}</h2>
-      {!done && (
-        <form className="section-stack" onSubmit={submit}>
-          <div className="field">
-            <label htmlFor="rating-score">Rating</label>
-            <select id="rating-score" name="score" className="ui-input" required defaultValue="">
-              <option value="" disabled>
-                Choose a rating
-              </option>
-              {[5, 4, 3, 2, 1].map((score) => (
-                <option key={score} value={score}>
-                  {score} / 5
+    <details className="review-disclosure" open={done || undefined}>
+      <summary>Leave a review for {name}</summary>
+      <div className="section-stack">
+        <p className="muted">
+          Share your experience to help other community members. You can leave one review per person
+          for this report.
+        </p>
+        {!done && (
+          <form className="section-stack" onSubmit={submit}>
+            <div className="field">
+              <label htmlFor="rating-score">Rating</label>
+              <select id="rating-score" name="score" className="ui-input" required defaultValue="">
+                <option value="" disabled>
+                  Choose a rating
                 </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="rating-comment">Comment (optional)</label>
-            <textarea
-              id="rating-comment"
-              name="comment"
-              className="ui-input"
-              rows={3}
-              maxLength={2000}
-            />
-          </div>
-          <Button type="submit" loading={state.isLoading}>
-            Submit review
-          </Button>
-        </form>
-      )}
-      {message && <p role={done ? "status" : "alert"}>{message}</p>}
-    </section>
+                {[5, 4, 3, 2, 1].map((score) => (
+                  <option key={score} value={score}>
+                    {score} / 5
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="rating-comment">Comment (optional)</label>
+              <textarea
+                id="rating-comment"
+                name="comment"
+                className="ui-input"
+                rows={3}
+                maxLength={2000}
+              />
+            </div>
+            <Button type="submit" loading={state.isLoading}>
+              Submit review
+            </Button>
+          </form>
+        )}
+        {message && <p role={done ? "status" : "alert"}>{message}</p>}
+      </div>
+    </details>
   );
 }

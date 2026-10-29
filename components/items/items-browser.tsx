@@ -71,10 +71,12 @@ export function ItemsBrowser({ sidebar = false }: { sidebar?: boolean }) {
       )}
 
       {photoSearchOpen && <PhotoSearch onClose={() => setPhotoSearchOpen(false)} />}
-      <Link href="/items/search" className="nav-link">
-        Try smart search — describe what you lost
-      </Link>
-      <AdvancedFilters />
+      <div className="discovery-toolbar">
+        <AdvancedFilters />
+        <Link href="/items/search" className="ui-button ui-button--secondary">
+          <ScanLine size={18} aria-hidden="true" /> Search by description
+        </Link>
+      </div>
       <div className={`browse-layout${sidebar ? " browse-layout--sidebar" : ""}`}>
         {sidebar ? (
           <section
