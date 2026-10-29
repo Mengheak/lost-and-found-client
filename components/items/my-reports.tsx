@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { ItemPhoto } from "@/components/items/item-photo";
 import { ReportItemForm } from "@/components/items/report-item-form";
+import { IndexItem } from "@/components/community/index-item";
 
 export function MyReports() {
   const session = useSessionQuery();
@@ -42,7 +43,7 @@ export function MyReports() {
         Checking your session…
       </div>
     );
-  if (!session.data?.user)
+  if (session.isError || !session.data?.user)
     return (
       <section className="container page-stack">
         <h1>My reports</h1>
@@ -72,7 +73,7 @@ function ReportsList({ userId }: { userId: string }) {
   const [editing, setEditing] = useState<Item | null>(null);
   const [pending, setPending] = useState<{
     item: Item;
-    status: "RETURNED" | "CLOSED" | "DELETE";
+    status: "OPEN" | "RETURNED" | "CLOSED" | "DELETE";
   } | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -97,7 +98,9 @@ function ReportsList({ userId }: { userId: string }) {
           ? "Report deleted."
           : pending.status === "RETURNED"
             ? "Report marked as returned."
-            : "Report closed.",
+            : pending.status === "OPEN"
+              ? "Report reopened."
+              : "Report closed.",
       );
       setPending(null);
     } catch {
@@ -199,6 +202,42 @@ function ReportsList({ userId }: { userId: string }) {
                       >
                         <Pencil size={18} />
                       </Button>
+                      {item.status !== "OPEN" && (
+                        <Button
+                          variant="secondary"
+                          disabled={isLoading}
+                          onClick={() => {
+                            setError("");
+                            setPending({ item, status: "OPEN" });
+                          }}
+                        >
+                          Reopen report
+                        </Button>
+                      )}
+                      {item.status === "CLOSED" && (
+                        <Button
+                          variant="secondary"
+                          disabled={isLoading}
+                          onClick={() => {
+                            setError("");
+                            setPending({ item, status: "RETURNED" });
+                          }}
+                        >
+                          Mark returned
+                        </Button>
+                      )}
+                      {item.status === "RETURNED" && (
+                        <Button
+                          variant="secondary"
+                          disabled={isLoading}
+                          onClick={() => {
+                            setError("");
+                            setPending({ item, status: "CLOSED" });
+                          }}
+                        >
+                          Close report
+                        </Button>
+                      )}
                       {item.status === "OPEN" && (
                         <>
                           <Button
@@ -237,6 +276,7 @@ function ReportsList({ userId }: { userId: string }) {
                         <Trash2 size={18} aria-hidden="true" />
                       </Button>
                     </div>
+                    <IndexItem id={item.id} hasPhotos={!!item.photoUrls?.length} />
                   </li>
                 ))}
               </ul>
@@ -275,14 +315,18 @@ function ReportsList({ userId }: { userId: string }) {
             ? "Delete this report?"
             : pending?.status === "RETURNED"
               ? "Mark this item as returned?"
-              : "Close this report?"
+              : pending?.status === "OPEN"
+                ? "Reopen this report?"
+                : "Close this report?"
         }
         confirmLabel={
           pending?.status === "DELETE"
             ? "Delete report"
             : pending?.status === "RETURNED"
               ? "Mark returned"
-              : "Close report"
+              : pending?.status === "OPEN"
+                ? "Reopen report"
+                : "Close report"
         }
         destructive={pending?.status === "DELETE"}
         busy={isLoading}
@@ -295,7 +339,9 @@ function ReportsList({ userId }: { userId: string }) {
             ? "This will permanently delete your report. This action cannot be undone."
             : pending?.status === "RETURNED"
               ? "Confirm that this item has been returned to its owner."
-              : "This report will no longer be marked as open."}
+              : pending?.status === "OPEN"
+                ? "This report will be open again. Its previous return date will be cleared."
+                : "This report will no longer be marked as open."}
         </p>
         {error && (
           <p role="alert" className="field-error">
