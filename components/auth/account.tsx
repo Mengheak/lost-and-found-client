@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LogOut, RotateCcw, Pencil } from "lucide-react";
 import { useSessionQuery, useLogoutMutation, authApi } from "@/store/api/auth-api";
 import { useAppDispatch } from "@/store/hooks";
@@ -11,8 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EditProfileForm } from "@/components/auth/edit-profile-form";
 import { Avatar } from "@/components/ui/avatar";
+import Link from "next/link";
+import { GoogleSignIn } from "./google-sign-in";
 
 export function Account() {
+  const params = useSearchParams();
   const session = useSessionQuery(undefined, {
     pollingInterval: 60000,
     refetchOnMountOrArgChange: true,
@@ -78,6 +81,9 @@ export function Account() {
         <p className="muted">You’re part of the Lost & Found community.</p>
       </header>
       {saved && <p role="status">Profile updated successfully.</p>}
+      {params.get("google") === "linked" && (
+        <p role="status">Google account linked successfully.</p>
+      )}
       <Card className="section-stack">
         {editing ? (
           <EditProfileForm
@@ -92,6 +98,12 @@ export function Account() {
         ) : (
           <>
             <h2>Account details</h2>
+            <div className="row">
+              <Link href={`/users/${user.id}`}>My public profile and reviews</Link>
+              <Link href="/saved-items">Saved items</Link>
+              <Link href="/notifications">Notifications</Link>
+            </div>
+            <GoogleSignIn linking />
             <dl className="item-facts">
               <div>
                 <dt>Name</dt>

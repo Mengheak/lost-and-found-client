@@ -4,23 +4,27 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useStartGoogleMutation } from "@/store/api/auth-api";
 import { googleAuthError } from "@/lib/google-auth";
+import { useStartGoogleLinkMutation } from "@/store/api/community-api";
 
 export function GoogleSignIn({
   disabled = false,
   onBusyChange,
+  linking = false,
 }: {
   disabled?: boolean;
   onBusyChange?: (busy: boolean) => void;
+  linking?: boolean;
 }) {
   const [start, { isLoading }] = useStartGoogleMutation();
+  const [link, linkState] = useStartGoogleLinkMutation();
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState("");
   async function signIn() {
-    if (isLoading || leaving) return;
+    if (isLoading || linkState.isLoading || leaving) return;
     setError("");
     onBusyChange?.(true);
     try {
-      const { authorizationUrl } = await start().unwrap();
+      const { authorizationUrl } = await (linking ? link() : start()).unwrap();
       setLeaving(true);
       window.location.assign(authorizationUrl);
     } catch (failure) {
@@ -33,9 +37,9 @@ export function GoogleSignIn({
       <Button
         variant="secondary"
         disabled={disabled}
-        loading={isLoading || leaving}
+        loading={isLoading || linkState.isLoading || leaving}
         onClick={signIn}
-        aria-label="Continue with Google"
+        aria-label={linking ? "Link Google account" : "Continue with Google"}
       >
         {!isLoading && !leaving && (
           <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -57,7 +61,7 @@ export function GoogleSignIn({
             />
           </svg>
         )}
-        Continue with Google
+        {linking ? "Link Google account" : "Continue with Google"}
       </Button>
       {error && (
         <p role="alert" className="field-error">

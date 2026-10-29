@@ -20,7 +20,12 @@ export function GoogleCallback() {
     started.current = true;
     void complete()
       .unwrap()
-      .then(() => {
+      .then((result) => {
+        if ("linked" in result) {
+          router.replace("/account?google=linked");
+          router.refresh();
+          return;
+        }
         router.replace("/account");
         router.refresh();
       })
