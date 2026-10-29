@@ -1,74 +1,53 @@
 # Lost & Found client
 
-Next.js App Router, TypeScript, Tailwind CSS 4, Redux Toolkit, React Redux, and Lucide React.
+Next.js App Router, TypeScript, Tailwind CSS 4, Redux Toolkit, and React Redux.
 
-## Development
+## Run
 
 ```sh
 npm install
 npm run dev
 npm run lint
+npm run typecheck
+npm test
 npm run build
 ```
 
-Open `/` or `/items` to browse live reports and `/items/[id]` for details. Sign-in, registration, and the account page are available at `/login`, `/register`, and `/account`. Reporting is not implemented yet.
+Copy `.env.example` to `.env.local` if the backend origin differs from `http://localhost:8080`. Tokens stay in HttpOnly cookies; browser requests use same-origin Next.js endpoints. No app tokens are stored in localStorage or exposed to JavaScript. Production requires HTTPS. Authentication and private operations require an exact matching Origin. Reverse proxies must preserve the public origin.
 
-## Structure
+## Features and backend coverage
 
-- `app/`: routes, metadata, root layout, and global base styles.
-- `components/ui/`: shared Button, Input, Card, and Badge components.
-- `components/layout/`: shared application shell.
-- `components/providers/`: client providers mounted by the server root layout.
-- `lib/`: application constants, route constants, types, and utilities.
-- `store/`: store factory, typed hooks, and Redux slices.
-- `styles/`: shared design tokens and component styles.
-- `public/`: static assets, including the existing Lost & Found logo.
+| Frontend                                        | Backend operations                                                                                                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/`, `/items`                                   | Browse reports, keywords, type, category, status, brand, color, date range, pagination                                                                 |
+| `/items/search`                                 | Semantic search by description, optional category and similarity threshold, up to 20 results                                                           |
+| Search by image dialog                          | Photo search for open found reports                                                                                                                    |
+| `/items/[id]`                                   | Report details, photos, map coordinates, reward, reporter profile, save, contact, and review                                                           |
+| `/items/report`, `/my-reports`                  | Create, edit, delete, mark returned, close, reopen, text/photo search indexing                                                                         |
+| `/saved-items`                                  | Paginated shortlist, save and remove reports                                                                                                           |
+| `/notifications`                                | Paginated feed, mark one/all read, automatic polling                                                                                                   |
+| `/messages`, `/messages/[id]`                   | Start/list conversations, paginated history, text and photo messages, participant profiles and reviews                                                 |
+| `/users/[id]`                                   | Public member profile, average rating, paginated received reviews                                                                                      |
+| `/login`, `/register`, `/account`               | Email/password and Google sign-in, profile/avatar editing, Google account linking, logout                                                              |
+| `/forgot-password`, `/reset-password?token=...` | Request recovery email and reset password using a single-use link                                                                                      |
+| `/admin`                                        | Search/page users, full user details, role changes, temporary/permanent bans, revoke bans, paginated moderation history, create/edit/delete categories |
 
-## Styling conventions
+Administration is shown only to administrators and checked in the server proxy as well as the backend. Destructive management actions have confirmation dialogs. Mock/development endpoints and alternative wire formats are not separate product features. Chat uses the existing authenticated REST endpoints and polling; no browser bearer token is required for a WebSocket connection.
 
-`styles/tokens.css` is the source of truth for colors, spacing, radii, shadows, and container width. Yellow `#FFD100` and ink `#20241F` match the original frontend logo. The source frontend's global stylesheet was unavailable, so supporting colors are documented defaults. Semantic Tailwind utilities such as `bg-primary`, `text-ink`, and `border-surface-border` map to the same tokens.
+## Backend configuration
 
-Barlow (the shared UI font, weights 400–800) and Geist Mono (for code) are loaded through `next/font` and served locally by Next.js. Builds need access to Google Fonts to download them. The Khmer/system fallback stack applies when a suitable font is installed; a Khmer font is not bundled. Use the shared typography scale and components before adding page-specific styles. Use CSS Modules for isolated page styling.
+The Java API, database, and object storage must run. Photo/semantic search and manual indexing also require the backend AI service and indexed reports.
 
-Layouts start with one column, switch to two at 40rem (640px), and three at 64rem (1024px). Containers cap at 72rem. Controls have at least 44px touch targets. Keyboard focus, input errors, disabled/loading states, skip navigation, and reduced motion are supported. The current theme is light only.
+Password recovery requires these backend runtime settings plus SMTP configuration:
 
-## State and icons
+```dotenv
+PASSWORD_RESET_ENABLED=true
+PASSWORD_RESET_FRONTEND_URL=http://localhost:3000/reset-password
+```
 
-Use `useAppDispatch` and `useAppSelector` from `store/hooks.ts` in client components. Add reducers under `store/slices/` and register them in `store/index.ts`. The provider creates one store per mounted application; there is no server-wide singleton. Filters survive client navigation but reset on a full reload. Keep transient component state local and avoid reading Redux from Server Components. RTK Query handles the item and category API cache. No persistent storage is configured.
+The backend defaults recovery links to its own static page. Set the frontend URL above to use this application's reset screen. A successful reset revokes existing sessions, clears local session cookies/cache, and asks the user to sign in again. Passwords require at least eight Unicode characters and at most 72 UTF-8 bytes.
 
-Import individual icons from `lucide-react`. Decorative icons use `aria-hidden`; icon-only controls must have an accessible label.
-
-References: [Redux with Next.js](https://redux.js.org/usage/nextjs), [Lucide React](https://lucide.dev/guide/react/).
-
-## Validation in this workspace
-
-Lint, route type generation, TypeScript checking, and Redux filter update/reset/store-isolation checks passed. The production build hit a Turbopack CSS-worker process startup error on this Windows environment. Live HTTP integration checks passed for listing, keyword/type/category/status filters, pagination, item details, empty results, and missing-item responses. Browser verification confirmed that the Redux prerender error is resolved and the Lost items filter returns matching results. Full visual and responsive checks remain incomplete.
-
-
-## Browse & Search Items
-
-The Next.js read-only catalog proxy forwards requests to `API_BASE_URL` (default `http://localhost:8080`). Copy `.env.example` to `.env.local` to change it, then restart the frontend. Browser requests stay on the frontend origin; no CORS changes or credentials are needed for these public endpoints.
-
-Search submits keywords against item names/descriptions. Type, category, and status changes reset pagination. Filters survive client navigation to details and back, but reset on full reload. Results use 12 items per page, newest first. The backend has no location-search parameter; locations are displayed when provided, with a map link for coordinates. Photos use the backend's signed URLs with missing/broken-image fallbacks. Active item queries refresh every five minutes to renew signed URLs.
-
-The detail page shows descriptions, photo selection, category, status, date, brand, color, location, and reporter. Contact, claim, and reporting flows are intentionally deferred.
-
-
-## Authentication
-
-Email/password authentication uses RTK Query with a same-origin server endpoint at `/api/auth/[action]`. The server calls the existing backend login, register, refresh, logout, and current-user endpoints. Access and refresh tokens are never returned to browser JavaScript or stored in localStorage; they live in HttpOnly, SameSite=Lax cookies scoped to `/api/auth`. Production cookies require HTTPS. Authentication POSTs require an exact matching Origin and JSON content type. Reverse proxies must preserve the public request origin.
-
-The account route renders only a public loading shell until the server validates the session. Anonymous visitors are redirected to sign-in; no private account data is embedded in public HTML. Session validation runs when mounted and every minute while subscribed. Expired access tokens are refreshed server-side. The refresh cookie lasts at most seven days, matching the backend default; the backend remains authoritative about token validity. Web Locks serialize authentication requests across tabs in supported browsers; browsers without Web Locks may require signing in again if two tabs race a single-use refresh token.
-
-Registration follows backend password rules: at least eight Unicode characters and at most 72 UTF-8 bytes. The UI also checks password confirmation. Logout revokes all sessions on the backend, then clears cookies and cached frontend data. A transient logout failure retains the session for retry. Redux DevTools recording is disabled to avoid recording password-bearing mutation arguments. Password reset and explicit Google account linking are not included.
-
-Run `npm test` for the authentication contract and security regression suite. It compiles the actual route in memory and simulates backend responses; no accounts are created. Login, registration, refresh, outage, logout, cookie, CSRF, and password-boundary cases are covered. Successful sign-in against a real user account still requires user acceptance testing; no personal credentials were used during development.
-
-## Google sign-in
-
-Both authentication pages offer Continue with Google. The frontend starts the backend-managed OAuth2/OIDC flow, navigates to its authorization URL, and completes once at `/auth/google/callback`. Spring owns state, nonce, Google token validation, and identity rules. The Next.js server exchanges the completed handshake for app tokens and sets the existing HttpOnly app cookies. The browser never receives app tokens in JavaScript or URLs. Cancellation, expired handshakes, conflicts, disabled configuration, and rate limiting show recoverable errors; a failed completion must start a new flow.
-
-Set these values in the **backend runtime**, then restart it (the backend does not automatically read its `.env` outside Docker):
+Google login and account linking require these backend runtime settings:
 
 ```dotenv
 GOOGLE_LOGIN_ENABLED=true
@@ -78,31 +57,32 @@ GOOGLE_COOKIE_SECURE=false
 GOOGLE_COOKIE_SAME_SITE=lax
 ```
 
-Keep the Google client ID and secret only on the backend. The Google OAuth client must allow `http://localhost:8080/login/oauth2/code/google` as its redirect URI. This is the backend callback, not the frontend callback.
+Keep the Google client ID and secret on the backend. The Google OAuth client callback is `http://localhost:8080/login/oauth2/code/google`. The browser-facing API and frontend must use the same hostname and protocol so Spring's `JSESSIONID` handshake cookie reaches completion; different localhost ports work. Do not mix `localhost` and `127.0.0.1`. Set `GOOGLE_API_PUBLIC_URL` in Next.js if it differs from the internal API origin. For production, use HTTPS, secure cookies, a shared hostname/reverse proxy, and trusted forwarded headers. Linking is explicitly started from Account and retains the current app session after completion.
 
-The handshake uses Spring's default `JSESSIONID` cookie. Frontend and browser-facing API must use the **same hostname and protocol** so Spring's rotated handshake cookie reaches Next.js completion. Different localhost ports work; do not mix `localhost` and `127.0.0.1`. For production, use HTTPS and a shared public hostname/reverse proxy, route `/oauth2/**` and `/login/oauth2/**` to Spring, configure trusted forwarded headers, and enable secure Google cookies. Set `GOOGLE_API_PUBLIC_URL` in Next.js when the browser-facing API origin differs from the internal `API_BASE_URL`. Separate frontend/API hostnames are intentionally rejected by this integration; shared-parent-domain cookies are not configured.
+## Behavior
 
-At implementation time the running backend rejected port 3000 and returned 404 for Google start on its allowed legacy origin. A live Google account sign-in remains pending backend enablement and user consent. Tests cover the server cookie handoff, restricted redirects, disabled configuration, single-use completion prerequisites, conflicts, and private token storage without accessing a real Google account.
+Filters survive client navigation and reset on reload. Date range fields use local time and send ISO instants. Item/photo queries periodically renew signed image URLs. My reports preserves photos unless replacement/removal is selected; blank numeric/date values retain existing backend values. Zero removes a reward. Item type is immutable.
 
+Saved lists and notification feeds page independently. The header's notification badge counts unread records on the latest page only, since the backend has no total unread-count endpoint. Notifications do not contain target IDs; their links open the relevant messages, reports, or profile screen.
 
-## My reports
+Reviews use the signed-in author and a 1–5 score, with an optional comment of up to 2,000 characters. The backend prevents self-ratings and duplicate reviews for the same recipient/report. Reviews are available from reports and conversations so either participant can review the other. Similarity scores describe relevance, not ownership probability.
 
-Signed-in users can open `/my-reports` from the header to page through their own reports, edit details, or confirm marking an open report as returned or closed. The server uses `/api/items/my`, `PUT /api/items/{id}`, and `PATCH /api/items/{id}/status` with the existing private session cookies; backend ownership checks remain authoritative. Private report cache entries are scoped to the signed-in user and discarded when no longer subscribed.
+Private caches are scoped to the signed-in user and discarded when unused. Web Locks serialize authentication requests across tabs where supported. Failed mutations are never retried automatically; an uncertain result asks the user to refresh before retrying. Backend ownership, participant, administrator, and moderation rules remain authoritative.
 
-The editor keeps current photos by default. Users can replace the entire photo set or remove all photos. Temporary signed image URLs are never sent back as permanent photo references. The backend treats null values as unchanged, so blank date, coordinates, and reward fields retain existing values; a reward of zero removes the reward amount. Text fields can be cleared. Item type cannot be changed.
+## Verification
 
-Contract tests cover authenticated pagination, ownership rejection, photo preservation/replacement, and refresh-cookie retention when an update fails. These tests mock the backend; authenticated editing against live accounts still needs acceptance testing.
+The contract suite covers authentication, session rotation, CSRF, private operations, administrator guards, allowlisted payloads, moderation conflicts, reviews, recovery, Google linking, search indexing, public profiles, advanced filters, image search, and semantic search. It simulates backend responses and does not modify real accounts.
 
-## Chat photo uploads
+Type checking and lint pass. Live public API and browser checks verified semantic search results, public profiles/reviews, recovery rendering, and signed-out access to private screens. Authenticated writes and Google/SMTP delivery still need acceptance testing with appropriately configured accounts/services.
 
-Conversations support one JPEG or PNG photo per message, with an optional caption. Choose a photo in the composer to preview it, remove it, or send it. The frontend checks the 5 MB limit; the backend also checks image contents and a maximum of 20 million pixels. Failed sends retain the caption and selected photo and are never retried automatically. Refresh history to check an uncertain result before sending again.
+The production build reproduces the existing Windows Turbopack CSS-worker process startup failure. Restricted-network builds also cannot download Google Fonts. These environment limitations are independent of the passing TypeScript and contract checks.
 
-Uploads use the authenticated same-origin `send-image` action, which forwards only the image and caption to `POST /api/conversations/{id}/messages/image`. App tokens stay in server-managed cookies. Attached images appear inline and open at full size in a new tab. Message polling and manual refresh obtain fresh signed MinIO URLs. Contract tests cover upload validation, participant errors, session refresh, and uncertain uploads; live uploads against a real account still need acceptance testing.
+## Structure and styling
 
-## Search by photo
+- `app/`: routes and fixed-origin backend proxies.
+- `components/`: shared UI, authentication, items, messaging, and community/admin screens.
+- `lib/`: contracts and validation; `feature-actions.ts` strictly maps additional private operations.
+- `store/`: per-mounted-app Redux store and RTK Query APIs.
+- `styles/`: design tokens and shared responsive styles.
 
-Click the **Search by image** icon inside the search field on `/` or `/items` to open the image search dialog. Drop or choose one JPG, PNG or WebP photo (up to 5 MB and 20 million pixels), review the preview, optionally choose a category, and select **Find similar items**. Results show up to 20 open found reports in visual similarity order inside the dialog. Change or remove the photo, cancel a search, or retry a failure. Close with Escape, the close button, or the backdrop to return to browsing. The existing keyword search is unchanged; there is no separate text/image mode selector.
-
-The public same-origin `POST /api/catalog/search/photo` forwards multipart `file`, `categoryId`, and a fixed `limit=20` to the existing backend `/api/items/search/photo`. It uses `API_BASE_URL`, requires no login, forwards no credentials, and does not cache responses. The backend and its photo embedding AI service must be running, and report photos must be indexed. Query photos are processed by the backend without adding them to report storage. Similarity does not establish ownership.
-
-`npm test` covers the photo upload contract, validation, category forwarding, result order, empty results, and service failures. Lint and type checking pass. Live matching and browser acceptance remain unverified; the production build encounters the existing Windows Turbopack CSS-worker startup failure.
+Yellow `#FFD100` and ink `#20241F` follow the logo. Barlow and Geist Mono are loaded through `next/font`. Controls use shared accessible components, keyboard focus styles, loading/error states, and responsive grids. No additional external service or browser token storage is introduced.
