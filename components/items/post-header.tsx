@@ -1,6 +1,7 @@
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { formatItemDate, STATUS_LABELS, type Item } from "@/lib/items";
+import Link from "next/link";
 
 export function PostHeader({ item }: { item: Item }) {
   const name = item.owner?.name || "Community member";
@@ -8,7 +9,13 @@ export function PostHeader({ item }: { item: Item }) {
     <header className="post-header">
       <Avatar src={item.owner?.profilePhotoUrl} name={name} decorative />
       <div className="post-author">
-        <strong>{name}</strong>
+        {item.owner ? (
+          <Link href={`/users/${item.owner.id}`}>
+            <strong>{name}</strong>
+          </Link>
+        ) : (
+          <strong>{name}</strong>
+        )}
         <p>
           {item.type === "LOST" ? "Looking for a lost item" : "Shared a found item"}
           <span aria-hidden="true"> · </span>

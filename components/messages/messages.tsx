@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { chatError, validateChatImage } from "@/lib/chat";
 import { STATUS_LABELS } from "@/lib/items";
 import styles from "./messages.module.css";
+import { RatingForm } from "@/components/community/profile";
 
 export function Messages({ id }: { id?: string }) {
   const session = useSessionQuery();
@@ -33,7 +34,7 @@ export function Messages({ id }: { id?: string }) {
     <section className={`container ${styles.page}`}>
       {session.isLoading ? (
         <p role="status">Checking your session…</p>
-      ) : !session.data?.user ? (
+      ) : session.isError || !session.data?.user ? (
         <div className={styles.empty}>
           <MessageCircle size={32} aria-hidden="true" />
           <h1>Messages</h1>
@@ -302,7 +303,7 @@ function ConversationView({ id, userId }: { id: string; userId: string }) {
                 decorative
               />
               <div>
-                <h1>{other?.name}</h1>
+                <h1>{other && <Link href={`/users/${other.id}`}>{other.name}</Link>}</h1>
                 <p className="muted">Private conversation</p>
               </div>
             </div>
@@ -462,6 +463,14 @@ function ConversationView({ id, userId }: { id: string; userId: string }) {
               </Button>
             </div>
           </form>
+          {other && (
+            <RatingForm
+              key={`${thread.item.id}-${other.id}`}
+              itemId={thread.item.id}
+              toUserId={other.id}
+              name={other.name}
+            />
+          )}
         </div>
       )}
     </>
