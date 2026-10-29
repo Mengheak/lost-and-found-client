@@ -12,6 +12,9 @@ import { ImageModal } from "../ui/image-modal";
 import { getFirstChar } from "@/lib/utils";
 import Image from "next/image";
 import { ContactReporter } from "./contact-reporter";
+import Link from "next/link";
+import { SaveItem } from "@/components/community/saved-items";
+import { RatingForm } from "@/components/community/profile";
 
 export function ItemDetail({ id }: { id: string }) {
   const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -117,16 +120,36 @@ export function ItemDetail({ id }: { id: string }) {
                   )}
                   <div>
                     <p className="muted">Reported by</p>
-                    <strong>{item.owner?.name || "Community member"}</strong>
+                    {item.owner ? (
+                      <Link href={`/users/${item.owner.id}`}>
+                        <strong>{item.owner.name}</strong>
+                      </Link>
+                    ) : (
+                      <strong>Community member</strong>
+                    )}
+                    {item.owner && (
+                      <p className="muted">
+                        {item.owner.ratingAvg > 0
+                          ? `${item.owner.ratingAvg.toFixed(1)} / 5 community rating`
+                          : "No ratings yet"}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <ContactReporter item={item} />
+                <SaveItem key={item.id} id={item.id} />
               </section>
               <div className="detail-description">
                 <h2>About this item</h2>
                 <p>{item.description || "No description provided."}</p>
               </div>
               <dl className="item-facts">
+                {item.rewardAmount != null && item.rewardAmount > 0 && (
+                  <div>
+                    <dt>Reward amount</dt>
+                    <dd>{item.rewardAmount.toLocaleString()}</dd>
+                  </div>
+                )}
                 <div>
                   <dt>Brand</dt>
                   <dd>{item.brand || "Not specified"}</dd>
@@ -146,6 +169,14 @@ export function ItemDetail({ id }: { id: string }) {
                   </div>
                 )}
               </dl>
+              {item.owner && (
+                <RatingForm
+                  key={`${item.id}-${item.owner.id}`}
+                  itemId={item.id}
+                  toUserId={item.owner.id}
+                  name={item.owner.name}
+                />
+              )}
               {item.locationLat != null && item.locationLng != null && (
                 <a
                   className="ui-button ui-button--secondary icon-action"

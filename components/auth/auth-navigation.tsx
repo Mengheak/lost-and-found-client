@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { LogIn, ClipboardList, MessageCircle } from "lucide-react";
+import { LogIn, ClipboardList, MessageCircle, Bookmark, Shield } from "lucide-react";
+import { NotificationLink } from "@/components/community/notifications";
 import { useSessionQuery } from "@/store/api/auth-api";
 import { Avatar } from "@/components/ui/avatar";
 
@@ -15,6 +16,25 @@ export function AuthNavigation() {
     );
   return data?.user && !isError ? (
     <>
+      <NotificationLink key={data.user.id} userId={data.user.id} />
+      <Link
+        className="nav-link icon-action"
+        href="/saved-items"
+        aria-label="Saved items"
+        title="Saved items"
+      >
+        <Bookmark size={18} aria-hidden="true" />
+      </Link>
+      {data.user.role === "ADMIN" && (
+        <Link
+          className="nav-link icon-action"
+          href="/admin"
+          aria-label="Administration"
+          title="Administration"
+        >
+          <Shield size={18} aria-hidden="true" />
+        </Link>
+      )}
       <Link
         className="nav-link icon-action"
         href="/messages"
