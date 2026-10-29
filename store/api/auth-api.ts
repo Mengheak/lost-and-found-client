@@ -14,7 +14,7 @@ const lockedQuery: typeof baseQuery = async (args, api, options) => {
 export const authApi = createApi({
   reducerPath: "authApi",
   baseQuery: lockedQuery,
-  tagTypes: ["Session", "Reports", "Conversations", "Messages"],
+  tagTypes: ["Session", "Reports", "Conversations", "Messages", "Saved", "Notifications", "Admin"],
   endpoints: (builder) => ({
     updateProfile: builder.mutation<{ user: AuthUser }, FormData>({
       query: (body) => ({ url: "update-profile", method: "POST", body, timeout: 75000 }),
@@ -52,15 +52,15 @@ export const authApi = createApi({
         body,
         timeout: 75000,
       }),
-      invalidatesTags: ["Reports"],
+      invalidatesTags: ["Reports", "Saved"],
     }),
     editItem: builder.mutation<{ data: import("@/lib/items").Item }, FormData>({
       query: (body) => ({ url: "edit-item", method: "POST", body, timeout: 75000 }),
-      invalidatesTags: ["Reports"],
+      invalidatesTags: ["Reports", "Saved"],
     }),
-    itemStatus: builder.mutation<unknown, { id: string; status: "RETURNED" | "CLOSED" }>({
+    itemStatus: builder.mutation<unknown, { id: string; status: "OPEN" | "RETURNED" | "CLOSED" }>({
       query: (body) => ({ url: "item-status", method: "POST", body }),
-      invalidatesTags: ["Reports"],
+      invalidatesTags: ["Reports", "Saved"],
     }),
     reportItem: builder.mutation<{ data: import("@/lib/items").Item }, FormData>({
       query: (body) => ({ url: "report-item", method: "POST", body, timeout: 75000 }),
@@ -69,7 +69,7 @@ export const authApi = createApi({
     startGoogle: builder.mutation<{ authorizationUrl: string }, void>({
       query: () => ({ url: "google-start", method: "POST", body: {} }),
     }),
-    completeGoogle: builder.mutation<{ user: AuthUser }, void>({
+    completeGoogle: builder.mutation<{ user: AuthUser } | { linked: true }, void>({
       query: () => ({ url: "google-complete", method: "POST", body: {} }),
       invalidatesTags: ["Session"],
     }),

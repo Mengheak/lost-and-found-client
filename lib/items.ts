@@ -38,6 +38,10 @@ export interface ApiResponse<T> {
   data: T;
 }
 export interface ItemFilters {
+  brand?: string;
+  color?: string;
+  dateFrom?: string;
+  dateTo?: string;
   query: string;
   type: "all" | "lost" | "found";
   categoryId: string;
@@ -60,6 +64,9 @@ export function itemSearchParams(filters: ItemFilters) {
   if (filters.type !== "all") params.set("type", filters.type.toUpperCase());
   if (filters.categoryId) params.set("categoryId", filters.categoryId);
   if (filters.status) params.set("status", filters.status);
+  for (const key of ["brand", "color", "dateFrom", "dateTo"] as const) {
+    if (filters[key]?.trim()) params.set(key, filters[key]!.trim());
+  }
   return params.toString();
 }
 export function formatItemDate(value: string | null) {

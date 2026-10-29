@@ -13,14 +13,17 @@ export const itemsApi = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: "/api/catalog/", timeout: 15000 }),
   keepUnusedDataFor: 60,
   refetchOnMountOrArgChange: 60,
+  tagTypes: ["Item", "Profile", "Ratings"],
   endpoints: (builder) => ({
     getItems: builder.query<Page<Item>, ItemFilters>({
       query: (filters) => `items?${itemSearchParams(filters)}`,
       transformResponse: (response: ApiResponse<Page<Item>>) => response.data,
+      providesTags: ["Item"],
     }),
     getItem: builder.query<Item, string>({
       query: (id) => `items/${encodeURIComponent(id)}`,
       transformResponse: (response: ApiResponse<Item>) => response.data,
+      providesTags: ["Item"],
     }),
     getCategories: builder.query<Category[], void>({
       query: () => "categories",

@@ -4,6 +4,7 @@
 @import "../styles/items.css";
 @import "../styles/auth.css";
 @import "../styles/report.css";
+@import "../styles/community.css";
 @theme inline {
   --color-primary: var(--primary);
   --color-primary-dark: var(--primary-dark);

@@ -8,6 +8,13 @@ const filtersSlice = createSlice({
   name: "filters",
   initialState,
   reducers: {
+    setAdvancedFilters(
+      state,
+      action: PayloadAction<Pick<ItemFilters, "brand" | "color" | "dateFrom" | "dateTo">>,
+    ) {
+      Object.assign(state, action.payload);
+      state.page = 0;
+    },
     setQuery(state, action: PayloadAction<string>) {
       state.query = action.payload;
       state.page = 0;
@@ -31,6 +38,13 @@ const filtersSlice = createSlice({
   },
 });
 
-export const { setQuery, setType, setCategory, setStatus, setPage, resetFilters } =
-  filtersSlice.actions;
+export const {
+  setQuery,
+  setType,
+  setCategory,
+  setStatus,
+  setPage,
+  resetFilters,
+  setAdvancedFilters,
+} = filtersSlice.actions;
 export default filtersSlice.reducer;

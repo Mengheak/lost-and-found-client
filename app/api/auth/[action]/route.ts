@@ -4,6 +4,7 @@ import { validateReport, validatePhotos } from "@/lib/report-item";
 import { validateProfile } from "@/lib/profile";
 import { validateChatImage } from "@/lib/chat";
 import { validPassword } from "@/lib/auth";
+import { FEATURE_ACTIONS, featureRequest, featureError } from "@/lib/feature-actions";
 
 const ACCESS = "lf_access";
 const REFRESH = "lf_refresh";
@@ -96,11 +97,52 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       "messages",
       "send-message",
       "send-image",
+      "forgot-password",
+      "reset-password",
+      "google-link",
+      ...FEATURE_ACTIONS,
     ].includes(action)
   )
     return response({ message: "Not found" }, 404);
   try {
-    if (action === "google-start" || action === "google-complete") {
+    if (action === "forgot-password" || action === "reset-password") {
+      const body = await request.json();
+      const resetting = action === "reset-password";
+      if (
+        resetting
+          ? typeof body?.token !== "string" ||
+            !/^[A-Za-z0-9_-]{43}$/.test(body.token) ||
+            typeof body.newPassword !== "string" ||
+            !validPassword(body.newPassword)
+          : typeof body?.email !== "string" ||
+            body.email.length > 255 ||
+            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim())
+      )
+        return response({ message: "Invalid recovery details." }, 400);
+      const upstream = await backend(
+        `auth/${action}`,
+        resetting
+          ? { token: body.token, newPassword: body.newPassword }
+          : { email: body.email.trim() },
+      );
+      if (!upstream.ok)
+        return response(
+          {
+            message:
+              upstream.status === 400
+                ? "This reset link is invalid or expired. Request a new link."
+                : featureError(upstream.status),
+          },
+          upstream.status,
+        );
+      const result = response({
+        message: resetting
+          ? "Password updated. Sign in with your new password."
+          : "If an account exists for that email, check your inbox for a password reset link.",
+      });
+      return resetting ? clearSession(result) : result;
+    }
+    if (action === "google-start" || action === "google-complete" || action === "google-link") {
       // Spring's browser handshake cookie must reach both the backend callback
       // and this BFF. Use the same public hostname (different localhost ports work).
       const apiOrigin = new URL(
@@ -119,13 +161,31 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         );
       }
       const completing = action === "google-complete";
+      let linkAccess = request.cookies.get(ACCESS)?.value;
+      let linkTokens: Tokens | undefined;
+      if (action === "google-link") {
+        const profile = linkAccess ? await backend("users/me", undefined, linkAccess) : undefined;
+        if (!profile || profile.status === 401) {
+          const refresh = request.cookies.get(REFRESH)?.value;
+          if (!refresh)
+            return clearSession(response({ message: "Please sign in to link Google." }, 401));
+          const renewed = await backend("auth/refresh", { refreshToken: refresh });
+          if (!renewed.ok)
+            return [401, 403].includes(renewed.status)
+              ? clearSession(response({ message: "Please sign in again." }, 401))
+              : response({ message: "Session service unavailable" }, 503);
+          linkTokens = (await renewed.json()).data as Tokens;
+          linkAccess = linkTokens.accessToken;
+        } else if (!profile.ok)
+          return response({ message: "Session service unavailable" }, profile.status);
+      }
       const sessionId = request.cookies.get("JSESSIONID")?.value;
       if (completing && (!sessionId || !request.cookies.get("lf_google_pending"))) {
         return response({ message: "Google sign-in has expired. Please start again." }, 401);
       }
       const upstream = await fetch(
         new URL(
-          `/api/auth/google/${completing ? "complete" : "start"}`,
+          `/api/auth/google/${completing ? "complete" : action === "google-link" ? "link" : "start"}`,
           process.env.API_BASE_URL || "http://localhost:8080",
         ),
         {
@@ -133,6 +193,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
           headers: {
             Origin: request.nextUrl.origin,
             "Content-Type": "application/json",
+            ...(action === "google-link" ? { Authorization: `Bearer ${linkAccess}` } : {}),
             ...(sessionId ? { Cookie: `JSESSIONID=${encodeURIComponent(sessionId)}` } : {}),
           },
           body: "{}",
@@ -159,10 +220,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
           },
           upstream.status,
         );
-        return completing ? clearHandshake(result) : result;
+        return completing
+          ? clearHandshake(result)
+          : linkTokens
+            ? setSession(result, linkTokens)
+            : result;
       }
       const { data } = await upstream.json();
       if (completing) {
+        if (data == null && request.cookies.get("lf_google_pending")?.value === "link")
+          return clearHandshake(response({ linked: true }));
         if (!data?.accessToken || !data?.refreshToken || !data?.user)
           return clearHandshake(
             response({ message: "No sign-in result. Please start again." }, 401),
@@ -186,8 +253,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         maxAge: 300,
         secure: cookieOptions.secure || /;\s*secure(?:;|$)/i.test(handshake!),
       });
-      result.cookies.set("lf_google_pending", "1", { ...cookieOptions, maxAge: 300 });
-      return result;
+      result.cookies.set("lf_google_pending", action === "google-link" ? "link" : "1", {
+        ...cookieOptions,
+        maxAge: 300,
+      });
+      return linkTokens ? setSession(result, linkTokens) : result;
     }
     if (action === "login" || action === "register") {
       let body;
@@ -243,6 +313,45 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     if (!tokens && (!profile || [401, 403].includes(profile.status)))
       return clearSession(response({ user: null }, 401));
     if (!tokens && !profile?.ok) return response({ message: "Session service unavailable" }, 503);
+    if ((FEATURE_ACTIONS as readonly string[]).includes(action)) {
+      const finish = (result: NextResponse) => (tokens ? setSession(result, tokens) : result);
+      try {
+        const body = await request.json();
+        if (!body || typeof body !== "object" || Array.isArray(body))
+          return finish(response({ message: "Invalid request." }, 400));
+        const user = tokens?.user ?? (await profile!.json()).data;
+        if ((action.startsWith("admin-") || action.endsWith("category")) && user.role !== "ADMIN")
+          return finish(response({ message: "Administrator access required." }, 403));
+        let operation;
+        try {
+          operation = featureRequest(action, body);
+        } catch (error) {
+          return finish(
+            response({ message: error instanceof Error ? error.message : "Invalid request." }, 400),
+          );
+        }
+        const upstream = await fetch(
+          new URL(operation.path, process.env.API_BASE_URL || "http://localhost:8080"),
+          {
+            method: operation.method,
+            headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
+            ...(operation.payload ? { body: JSON.stringify(operation.payload) } : {}),
+            cache: "no-store",
+            signal: AbortSignal.timeout(action.startsWith("index-") ? 60000 : 10000),
+          },
+        );
+        if (!upstream.ok)
+          return finish(response({ message: featureError(upstream.status) }, upstream.status));
+        return finish(response(await upstream.json(), upstream.status));
+      } catch (error) {
+        return finish(
+          response(
+            { message: error instanceof SyntaxError ? "Invalid request." : featureError(503) },
+            error instanceof SyntaxError ? 400 : 503,
+          ),
+        );
+      }
+    }
     if (action === "send-image") {
       const finish = (result: NextResponse) => (tokens ? setSession(result, tokens) : result);
       try {
@@ -440,7 +549,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         } else {
           if (
             !/^[0-9a-f-]{36}$/i.test(body.id ?? "") ||
-            !["RETURNED", "CLOSED"].includes(body.status)
+            !["OPEN", "RETURNED", "CLOSED"].includes(body.status)
           )
             return finish(response({ message: "Invalid status update." }, 400));
           path = `/api/items/${body.id}/status`;
@@ -556,7 +665,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     const user = tokens?.user ?? (await profile!.json()).data;
     const result = response({ user: publicUser(user) });
     return tokens ? setSession(result, tokens) : result;
-  } catch {
-    return response({ message: "Account service unavailable" }, 503);
+  } catch (error) {
+    return response(
+      {
+        message: error instanceof SyntaxError ? "Invalid request." : "Account service unavailable",
+      },
+      error instanceof SyntaxError ? 400 : 503,
+    );
   }
 }

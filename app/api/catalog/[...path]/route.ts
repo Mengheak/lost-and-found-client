@@ -6,13 +6,29 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pat
   const valid =
     (path.length === 1 && ["items", "categories"].includes(path[0])) ||
     (path.length === 2 &&
-      path[0] === "items" &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path[1]));
+      ["items", "users", "categories"].includes(path[0]) &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path[1])) ||
+    (path.length === 3 &&
+      path[0] === "ratings" &&
+      path[1] === "user" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path[2]));
   if (!valid) return Response.json({ success: false, message: "Not found" }, { status: 404 });
   try {
     const origin = process.env.API_BASE_URL || "http://localhost:8080";
     const url = new URL(`/api/${path.join("/")}`, origin);
-    for (const key of ["q", "type", "categoryId", "status", "page", "size", "sort"]) {
+    for (const key of [
+      "q",
+      "type",
+      "categoryId",
+      "status",
+      "page",
+      "size",
+      "sort",
+      "brand",
+      "color",
+      "dateFrom",
+      "dateTo",
+    ]) {
       const value = request.nextUrl.searchParams.get(key);
       if (value !== null) url.searchParams.set(key, value);
     }
