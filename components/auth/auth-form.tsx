@@ -153,6 +153,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             {register ? "Create account" : "Sign in"}
           </Button>
         </form>
+        {!register && <Link href="/forgot-password">Forgot your password?</Link>}
         <p className="muted">
           {register ? "Already have an account? " : "New here? "}
           <Link href={register ? "/login" : "/register"}>
