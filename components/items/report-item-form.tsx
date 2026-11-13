@@ -1,6 +1,6 @@
 "use client";
 
-import { RotateCcw, X, ArrowLeft, LogIn, MapPin, Save, Send, Upload } from "lucide-react";
+import { RotateCcw, X, ArrowLeft, LogIn, Save, Send, Upload } from "lucide-react";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
@@ -13,6 +13,7 @@ import { useAppDispatch } from "@/store/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Item } from "@/lib/items";
+import { LocationPicker } from "./location-picker";
 import { validatePhotos, validateReport } from "@/lib/report-item";
 
 function PhotoPreview({ file, remove }: { file: File; remove: () => void }) {
@@ -62,6 +63,7 @@ export function ReportItemForm({
     lng: String(initialItem?.locationLng ?? ""),
   });
   const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState("");
   const router = useRouter();
   const dispatch = useAppDispatch();
 
@@ -141,9 +143,12 @@ export function ReportItemForm({
 
   function locate() {
     if (!navigator.geolocation) {
-      setError("Location is unavailable. Enter coordinates manually.");
+      setLocationError(
+        "Location is unavailable. Choose a point on the map or enter coordinates manually.",
+      );
       return;
     }
+    setLocationError("");
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -153,8 +158,12 @@ export function ReportItemForm({
         });
         setLocating(false);
       },
-      () => {
-        setError("Could not get your location. Enter coordinates manually.");
+      (failure) => {
+        setLocationError(
+          failure.code === 1
+            ? "Location permission was denied. Choose a point on the map, or allow location access in your browser and try again."
+            : "Could not get your location. Choose a point on the map or enter coordinates manually.",
+        );
         setLocating(false);
       },
       { timeout: 10000 },
@@ -365,39 +374,15 @@ export function ReportItemForm({
               reward.
             </p>
           )}
-          <p className="muted">
-            Optional coordinates are public. Only share a location you are comfortable publishing.
-          </p>
-          <Button
-            variant="secondary"
-            onClick={locate}
-            loading={locating}
-            iconLabel="Use my current location"
-          >
-            <MapPin size={18} />
-          </Button>
-          <div className="report-grid">
-            <Input
-              label="Latitude"
-              placeholder="e.g. 11.5564"
-              type="number"
-              min={-90}
-              max={90}
-              step="any"
-              value={coordinates.lat}
-              onChange={(e) => setCoordinates({ ...coordinates, lat: e.target.value })}
-            />
-            <Input
-              label="Longitude"
-              placeholder="e.g. 104.9282"
-              type="number"
-              min={-180}
-              max={180}
-              step="any"
-              value={coordinates.lng}
-              onChange={(e) => setCoordinates({ ...coordinates, lng: e.target.value })}
-            />
-          </div>
+          <LocationPicker
+            value={coordinates}
+            onChange={setCoordinates}
+            onLocate={locate}
+            locating={locating}
+            disabled={isLoading}
+            editing={!!initialItem}
+            error={locationError}
+          />
           {type === "LOST" ? (
             <Input
               label="Reward amount (optional)"

@@ -61,6 +61,10 @@ Keep the Google client ID and secret on the backend. The Google OAuth client cal
 
 ## Behavior
 
+Reports support selecting a location on an interactive map, using the device's current location, or entering coordinates manually. Keyboard users can pan the focused map with arrow keys and choose **Use map center**. No location is selected by default. New reports can remove their pin; editing retains the backend's existing behavior where blank coordinates keep the saved location. Coordinates remain the existing API payload, with no database migration required.
+
+The map uses Leaflet and OpenStreetMap tiles with visible attribution and normal browser caching. See the [tile usage policy](https://operations.osmfoundation.org/policies/tiles/) before a high-traffic deployment. Tiles require internet access; location and manual entry remain available if tiles fail. Device location requires permission and HTTPS (or localhost). Place-name search and nearby filtering are not included in this change.
+
 Filters survive client navigation and reset on reload. Date range fields use local time and send ISO instants. Item/photo queries periodically renew signed image URLs. My reports preserves photos unless replacement/removal is selected; blank numeric/date values retain existing backend values. Zero removes a reward. Item type is immutable.
 
 Saved lists and notification feeds page independently. The header's notification badge counts unread records on the latest page only, since the backend has no total unread-count endpoint. Notifications do not contain target IDs; their links open the relevant messages, reports, or profile screen.
