@@ -11,7 +11,7 @@
   box-shadow: 0 24px 80px rgb(0 0 0 / 18%);
 }
 .dialog::backdrop {
-  background: rgb(20 24 20 / 45%);
+  background: #02060bbd;
   backdrop-filter: blur(4px);
 }
 .header {
@@ -42,6 +42,7 @@
   width: 2.75rem;
   height: 2.75rem;
   background: var(--primary);
+  color: var(--on-primary);
   border-radius: var(--radius-md);
 }
 .layout {
