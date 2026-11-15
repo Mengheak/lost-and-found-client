@@ -1,21 +1,30 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Barlow, Geist_Mono } from "next/font/google";
+import { DM_Sans, IBM_Plex_Mono, Noto_Sans_Khmer } from "next/font/google";
 import "./globals.css";
+import "../styles/workspace.css";
 import { APP } from "@/lib/constants";
 import { StoreProvider } from "@/components/providers/store-provider";
 import { SiteHeader } from "@/components/layout/site-header";
 
-const barlow = Barlow({
-  variable: "--font-barlow",
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const plexMono = IBM_Plex_Mono({
+  weight: ["400", "500"],
+  variable: "--font-plex-mono",
   subsets: ["latin"],
+});
+
+const khmer = Noto_Sans_Khmer({
+  variable: "--font-khmer",
+  subsets: ["khmer"],
+  weight: ["400", "500", "600"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -28,18 +37,32 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${barlow.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${dmSans.variable} ${plexMono.variable} ${khmer.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <a href="#main-content" className="skip-link">Skip to content</a>
+        <a href="#main-content" className="skip-link">
+          Skip to content
+        </a>
         {/* Redux creates random internal IDs; defer it beyond the static shell. */}
-        <Suspense fallback={<main id="main-content" className="container page-stack flex-1" role="status">Loading…</main>}>
+        <Suspense
+          fallback={
+            <main id="main-content" className="container page-stack flex-1" role="status">
+              Loading…
+            </main>
+          }
+        >
           <StoreProvider>
             <SiteHeader />
-            <main id="main-content" className="flex-1">{children}</main>
+            <main id="main-content" className="flex-1">
+              {children}
+            </main>
           </StoreProvider>
         </Suspense>
-        <footer className="site-footer"><div className="container">{APP.name} · {APP.description}</div></footer>
+        <footer className="site-footer">
+          <div className="container">
+            {APP.name} · {APP.description}
+          </div>
+        </footer>
       </body>
     </html>
   );

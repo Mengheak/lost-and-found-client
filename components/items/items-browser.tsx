@@ -3,6 +3,9 @@
 import { useState, type FormEvent } from "react";
 import {
   Search,
+  Plus,
+  ArrowUpRight,
+  HeartHandshake,
   RotateCcw,
   ChevronLeft,
   ChevronRight,
@@ -62,13 +65,60 @@ export function ItemsBrowser({ sidebar = false }: { sidebar?: boolean }) {
 
   return (
     <div className={`container page-stack ${sidebar ? "items-page" : "home-browser"} board-shell`}>
-      {sidebar ? null : (
-        <header className="hero">
-          <p className="eyebrow">Lost & Found / Community board</p>
-          <h1>Community posts</h1>
-          <p className="muted">Something lost. Something found. Help someone bring it home.</p>
-        </header>
-      )}
+      <header className="hero">
+        <p className="eyebrow">Together, back where they belong</p>
+        <div className="board-intro">
+          <div>
+            <h1>{sidebar ? "Browse items" : "Community board"}</h1>
+            <p className="muted">Something lost. Something found. Help someone bring it home.</p>
+          </div>
+          <Link href="/items/report" className="ui-button ui-button--primary">
+            <Plus size={17} aria-hidden="true" /> Report an item
+          </Link>
+        </div>
+      </header>
+      <div className="board-notice">
+        <HeartHandshake size={18} aria-hidden="true" />
+        <p>
+          A community built on small acts of kindness. Browse reports, share a find, or reconnect
+          someone with what matters.
+        </p>
+      </div>
+      <section className="board-shortcuts" aria-label="Explore the community">
+        <button
+          type="button"
+          className="board-shortcut"
+          data-category="lost"
+          aria-pressed={filters.type === "lost"}
+          onClick={() => dispatch(setType(filters.type === "lost" ? "all" : "lost"))}
+        >
+          <span>
+            Lost items <ArrowUpRight size={16} aria-hidden="true" />
+          </span>
+          <strong>Help bring it home</strong>
+          <small>Explore lost reports</small>
+        </button>
+        <button
+          type="button"
+          className="board-shortcut"
+          data-category="found"
+          aria-pressed={filters.type === "found"}
+          onClick={() => dispatch(setType(filters.type === "found" ? "all" : "found"))}
+        >
+          <span>
+            Found items <ArrowUpRight size={16} aria-hidden="true" />
+          </span>
+          <strong>Find what you lost</strong>
+          <small>Explore community finds</small>
+        </button>
+        <Link href="/items/search" className="board-shortcut" data-category="search">
+          <span>
+            Smart search <ScanLine size={16} aria-hidden="true" />
+          </span>
+          <strong>A few words can help</strong>
+          <small>Describe your missing item</small>
+        </Link>
+      </section>
 
       {photoSearchOpen && <PhotoSearch onClose={() => setPhotoSearchOpen(false)} />}
       <div className="discovery-toolbar">
